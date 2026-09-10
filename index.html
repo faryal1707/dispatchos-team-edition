@@ -1330,15 +1330,66 @@
 
 
             <label>
-              Rate $
-              <input
-                id="loadRate"
-                required
-                type="number"
-                min="0"
-                step="1"
-              >
-            </label>
+  Company Rate $
+
+  <input
+    id="loadRate"
+    required
+    type="number"
+    min="0"
+    step="1"
+    placeholder="2500"
+  >
+
+  <small class="muted">
+    Total rate paid by broker to carrier
+  </small>
+</label>
+
+
+<label>
+  Driver Rate $
+
+  <input
+    id="loadDriverRate"
+    type="number"
+    min="0"
+    step="1"
+    value="0"
+    placeholder="1900"
+  >
+
+  <small class="muted">
+    Amount assigned to driver
+  </small>
+</label>
+
+
+<div class="card" style="padding:12px">
+
+  <small class="muted">
+    💰 Estimated Company Margin
+  </small>
+
+  <strong
+    id="loadMarginPreview"
+    style="
+      display:block;
+      font-size:1.25rem;
+      margin-top:4px;
+    "
+  >
+    $0
+  </strong>
+
+  <small
+    id="loadRatePreview"
+    class="muted"
+  >
+    Company RPM $0.00 · Driver RPM $0.00
+  </small>
+
+</div>
 
 
             <label>
