@@ -727,9 +727,7 @@
               </span>
 
             </div>
-
-
-            <form
+                        <form
               id="quickTaskForm"
               class="inline-form"
             >
@@ -1188,6 +1186,53 @@
             </label>
 
 
+            <label>
+              First document type
+
+              <select id="loadDocumentType">
+
+                <option value="RC">
+                  📄 Rate Confirmation (RC)
+                </option>
+
+                <option value="BOL">
+                  📋 BOL
+                </option>
+
+                <option value="POD">
+                  ✅ POD
+                </option>
+
+                <option value="Lumper">
+                  💵 Lumper Receipt
+                </option>
+
+                <option value="Other">
+                  📎 Other
+                </option>
+
+              </select>
+            </label>
+
+
+            <label class="span-2">
+              Attach first document
+
+              <input
+                id="loadDocumentFile"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+              >
+
+              <small class="muted">
+                Optional. You can upload more RC, BOL,
+                POD, lumper or other documents after
+                saving the load.
+              </small>
+
+            </label>
+
+
             <button class="btn primary wide">
               💾 Save Load
             </button>
@@ -1226,8 +1271,7 @@
             <h2>
               Problems that cannot be forgotten
             </h2>
-
-          </div>
+                      </div>
 
 
           <button
