@@ -2503,6 +2503,8 @@ function resetLoadFormMode(closeCard = false) {
 
   $('loadForm')?.reset();
 
+  updateLoadRatePreview();
+
   const submit = loadSubmitButton();
 
   if (submit) {
@@ -2515,6 +2517,59 @@ function resetLoadFormMode(closeCard = false) {
     $('loadFormCard')?.classList.add('hidden');
   }
 }
+
+
+function updateLoadRatePreview() {
+  const companyRate =
+    Number(
+      $('loadRate')?.value || 0
+    );
+
+  const driverRate =
+    Number(
+      $('loadDriverRate')?.value || 0
+    );
+
+  const loadedMiles =
+    Number(
+      $('loadMiles')?.value || 0
+    );
+
+  const margin =
+    companyRate - driverRate;
+
+  const companyRPM =
+    loadedMiles
+      ? companyRate / loadedMiles
+      : 0;
+
+  const driverRPM =
+    loadedMiles
+      ? driverRate / loadedMiles
+      : 0;
+
+  if ($('loadMarginPreview')) {
+    $('loadMarginPreview').textContent =
+      money(margin);
+  }
+
+  if ($('loadRatePreview')) {
+    $('loadRatePreview').textContent =
+      `Company RPM $${companyRPM.toFixed(2)} · Driver RPM $${driverRPM.toFixed(2)}`;
+  }
+}
+
+
+[
+  'loadRate',
+  'loadDriverRate',
+  'loadMiles'
+].forEach(id => {
+  $(id)?.addEventListener(
+    'input',
+    updateLoadRatePreview
+  );
+});
 
 
 function beginLoadEdit(loadId) {
@@ -2539,6 +2594,12 @@ function beginLoadEdit(loadId) {
   $('loadTruck').value = load.truck_id || '';
   $('loadBroker').value = load.broker || '';
   $('loadRate').value = load.rate ?? '';
+
+  if ($('loadDriverRate')) {
+    $('loadDriverRate').value =
+      load.driver_rate ?? 0;
+  }
+
   $('loadSource').value = load.source || 'DAT';
   $('loadOrigin').value = load.origin || '';
   $('loadDestination').value = load.destination || '';
@@ -2562,6 +2623,8 @@ function beginLoadEdit(loadId) {
 
   $('loadNotes').value =
     load.notes || '';
+
+  updateLoadRatePreview();
 
   if ($('loadDocumentType')) {
     $('loadDocumentType').value = 'RC';
@@ -2619,6 +2682,11 @@ $('loadForm').addEventListener('submit', async e => {
 
     rate:
       Number($('loadRate').value || 0),
+
+    driver_rate:
+      Number(
+        $('loadDriverRate')?.value || 0
+      ),
 
     source:
       $('loadSource').value,
