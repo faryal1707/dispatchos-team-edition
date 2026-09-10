@@ -7,6 +7,7 @@ let org = null;
 let myMembership = null;
 
 let members = [];
+let carriers = [];
 let trucks = [];
 let loads = [];
 let issues = [];
@@ -17,6 +18,7 @@ let activity = [];
 let loadDocuments = [];
 
 let currentPanel = 'dashboard';
+let carrierFilter = 'all';
 
 let heartbeatTimer = null;
 let adminRefreshTimer = null;
@@ -359,6 +361,11 @@ async function showPanel(id) {
       'Fleet Control'
     ],
 
+    carriers: [
+      'CLIENT COMPANIES',
+      'Carriers & Owner Operators'
+    ],
+
     loads: [
       'LOAD OPERATIONS',
       'Load Desk'
@@ -585,6 +592,7 @@ function showAuth() {
   myMembership = null;
 
   members = [];
+  carriers = [];
   trucks = [];
   loads = [];
   issues = [];
@@ -844,6 +852,7 @@ function showApp() {
 
 
   renderShift();
+  ensureCarrierFilter();
 }
 
 
@@ -998,6 +1007,8 @@ $('createOrgForm')
       );
     }
   );
+
+
 $('joinOrgForm')
   .addEventListener(
     'submit',
@@ -1188,6 +1199,7 @@ async function loadWorkspaceData() {
 
   const [
     memberRows,
+    carrierResult,
     truckResult,
     loadResult,
     issueResult,
@@ -1201,6 +1213,18 @@ async function loadWorkspaceData() {
     await Promise.all([
 
       fetchMembersWithProfiles(),
+
+      sb
+        .from('carriers')
+        .select('*')
+        .eq(
+          'org_id',
+          oid
+        )
+        .order(
+          'company_name',
+          { ascending: true }
+        ),
 
       sb
         .from('trucks')
@@ -1220,7 +1244,7 @@ async function loadWorkspaceData() {
       sb
         .from('loads')
         .select(
-          '*,trucks(truck_no)'
+          '*,trucks(truck_no,driver_name,carrier_id)'
         )
         .eq(
           'org_id',
@@ -1237,7 +1261,7 @@ async function loadWorkspaceData() {
       sb
         .from('issues')
         .select(
-          '*,trucks(truck_no)'
+          '*,trucks(truck_no,driver_name,carrier_id)'
         )
         .eq(
           'org_id',
@@ -1346,6 +1370,7 @@ async function loadWorkspaceData() {
 
 
   [
+    carrierResult,
     truckResult,
     loadResult,
     issueResult,
@@ -1372,6 +1397,10 @@ async function loadWorkspaceData() {
 
   members =
     memberRows ||
+    [];
+
+  carriers =
+    carrierResult.data ||
     [];
 
   trucks =
@@ -1457,6 +1486,222 @@ function activeMembers() {
 }
 
 
+function carrierName(carrierId) {
+
+  if (!carrierId) {
+    return 'Unassigned Carrier';
+  }
+
+
+  const carrier =
+    carriers.find(
+      c =>
+        String(c.id) ===
+        String(carrierId)
+    );
+
+
+  return (
+    carrier?.company_name ||
+    'Unknown Carrier'
+  );
+}
+
+
+function filteredTrucks() {
+
+  if (
+    carrierFilter ===
+    'all'
+  ) {
+    return trucks;
+  }
+
+
+  return trucks.filter(
+    t =>
+      String(
+        t.carrier_id ||
+        ''
+      ) ===
+      String(
+        carrierFilter
+      )
+  );
+}
+
+
+function filteredLoads() {
+
+  if (
+    carrierFilter ===
+    'all'
+  ) {
+    return loads;
+  }
+
+
+  return loads.filter(
+    l =>
+      String(
+        l.trucks
+          ?.carrier_id ||
+        ''
+      ) ===
+      String(
+        carrierFilter
+      )
+  );
+}
+
+
+function filteredIssues() {
+
+  if (
+    carrierFilter ===
+    'all'
+  ) {
+    return issues;
+  }
+
+
+  return issues.filter(
+    i =>
+      String(
+        i.trucks
+          ?.carrier_id ||
+        ''
+      ) ===
+      String(
+        carrierFilter
+      )
+  );
+}
+
+
+function ensureCarrierFilter() {
+
+  const topActions =
+    document.querySelector(
+      '.top-actions'
+    );
+
+
+  if (
+    !topActions ||
+    $('globalCarrierFilter')
+  ) {
+    return;
+  }
+
+
+  const wrap =
+    document.createElement(
+      'label'
+    );
+
+
+  wrap.id =
+    'carrierFilterWrap';
+
+
+  wrap.style.minWidth =
+    '210px';
+
+
+  wrap.style.margin =
+    '0';
+
+
+  wrap.innerHTML = `
+    <span style="font-size:.72rem">
+      🏢 Carrier View
+    </span>
+
+    <select id="globalCarrierFilter">
+      <option value="all">
+        All Companies
+      </option>
+    </select>
+  `;
+
+
+  topActions.insertBefore(
+    wrap,
+    topActions.firstChild
+  );
+
+
+  $('globalCarrierFilter')
+    .addEventListener(
+      'change',
+      e => {
+
+        carrierFilter =
+          e.target.value;
+
+
+        renderDashboard();
+        renderFleet();
+        renderLoads();
+        renderIssues();
+      }
+    );
+}
+
+
+function refreshCarrierFilterOptions() {
+
+  ensureCarrierFilter();
+
+
+  const select =
+    $('globalCarrierFilter');
+
+
+  if (!select) return;
+
+
+  const current =
+    carrierFilter;
+
+
+  select.innerHTML =
+    '<option value="all">All Companies</option>' +
+
+    carriers
+      .filter(
+        c =>
+          c.status ===
+          'active'
+      )
+      .map(
+        c => `
+          <option value="${c.id}">
+            ${esc(
+              c.company_name
+            )}
+          </option>
+        `
+      )
+      .join('');
+
+
+  select.value =
+    carriers.some(
+      c =>
+        String(c.id) ===
+        String(current)
+    )
+      ? current
+      : 'all';
+
+
+  carrierFilter =
+    select.value;
+}
+
+
 function populateSelects() {
 
   const opts =
@@ -1494,6 +1739,37 @@ function populateSelects() {
   );
 
 
+  const truckCarrier =
+    $('truckCarrier');
+
+
+  if (truckCarrier) {
+
+    truckCarrier.innerHTML =
+      '<option value="">Choose carrier</option>' +
+
+      carriers
+        .filter(
+          c =>
+            c.status ===
+            'active'
+        )
+        .map(
+          c => `
+            <option value="${c.id}">
+              ${esc(
+                c.company_name
+              )}
+            </option>
+          `
+        )
+        .join('');
+  }
+
+
+  refreshCarrierFilterOptions();
+
+
   $('loadTruck')
     .innerHTML =
       '<option value="">Choose truck</option>' +
@@ -1502,6 +1778,12 @@ function populateSelects() {
         .map(
           t => `
             <option value="${t.id}">
+              ${esc(
+                carrierName(
+                  t.carrier_id
+                )
+              )}
+              ·
               ${esc(
                 t.truck_no
               )}
@@ -1523,6 +1805,12 @@ function populateSelects() {
         .map(
           t => `
             <option value="${t.id}">
+              ${esc(
+                carrierName(
+                  t.carrier_id
+                )
+              )}
+              ·
               ${esc(
                 t.truck_no
               )}
@@ -1885,8 +2173,6 @@ function relativeTime(timestamp) {
 
   return `${days}d ago`;
 }
-
-
 /* ============================================================
    ADMIN LIVE REFRESH
 ============================================================ */
@@ -1914,19 +2200,36 @@ async function refreshAdminLive() {
 
   const [
     memberRows,
+    carrierResult,
     loadResult,
     issueResult,
     taskResult,
-    activityResult
+    activityResult,
+    documentResult
   ] =
     await Promise.all([
 
       fetchMembersWithProfiles(),
 
       sb
+        .from('carriers')
+        .select('*')
+        .eq(
+          'org_id',
+          oid
+        )
+        .order(
+          'company_name',
+          {
+            ascending:
+              true
+          }
+        ),
+
+      sb
         .from('loads')
         .select(
-          '*,trucks(truck_no)'
+          '*,trucks(truck_no,driver_name,carrier_id)'
         )
         .eq(
           'org_id',
@@ -1943,7 +2246,7 @@ async function refreshAdminLive() {
       sb
         .from('issues')
         .select(
-          '*,trucks(truck_no)'
+          '*,trucks(truck_no,driver_name,carrier_id)'
         )
         .eq(
           'org_id',
@@ -1988,50 +2291,58 @@ async function refreshAdminLive() {
               false
           }
         )
-        .limit(50)
+        .limit(50),
+
+      sb
+        .from(
+          'load_documents'
+        )
+        .select('*')
+        .eq(
+          'org_id',
+          oid
+        )
+        .order(
+          'created_at',
+          {
+            ascending:
+              false
+          }
+        )
 
     ]);
 
 
-  if (
-    loadResult.error
-  ) {
-    console.error(
-      loadResult.error
-    );
-  }
+  [
+    carrierResult,
+    loadResult,
+    issueResult,
+    taskResult,
+    activityResult,
+    documentResult
+  ].forEach(
+    result => {
 
+      if (
+        result?.error
+      ) {
 
-  if (
-    issueResult.error
-  ) {
-    console.error(
-      issueResult.error
-    );
-  }
-
-
-  if (
-    taskResult.error
-  ) {
-    console.error(
-      taskResult.error
-    );
-  }
-
-
-  if (
-    activityResult.error
-  ) {
-    console.error(
-      activityResult.error
-    );
-  }
+        console.error(
+          result.error
+        );
+      }
+    }
+  );
 
 
   members =
     memberRows ||
     members;
+
+
+  carriers =
+    carrierResult.data ||
+    carriers;
 
 
   loads =
@@ -2054,9 +2365,17 @@ async function refreshAdminLive() {
     activity;
 
 
+  loadDocuments =
+    documentResult.data ||
+    loadDocuments;
+
+
+  populateSelects();
+
   renderTeam();
   renderAdmin();
   renderActivity();
+  renderCarriers();
 
 
   setSync(
@@ -2140,7 +2459,9 @@ $('shiftBtn')
         );
 
 
-      if (me?.profiles) {
+      if (
+        me?.profiles
+      ) {
 
         me.profiles.shift_active =
           profile.shift_active;
@@ -2191,6 +2512,171 @@ function renderShift() {
 
 
 /* ============================================================
+   CARRIER FORM
+============================================================ */
+
+const carrierForm =
+  $('carrierForm');
+
+
+if (
+  carrierForm
+) {
+
+  carrierForm
+    .addEventListener(
+      'submit',
+      async e => {
+
+        e.preventDefault();
+
+
+        if (
+          ![
+            'admin',
+            'dispatcher'
+          ].includes(
+            myMembership?.role
+          )
+        ) {
+
+          toast(
+            '❌ You cannot add carriers'
+          );
+
+          return;
+        }
+
+
+        const payload = {
+
+          org_id:
+            org.id,
+
+          company_name:
+            $('carrierName')
+              .value
+              .trim(),
+
+          mc_number:
+            $('carrierMC')
+              .value
+              .trim() ||
+            null,
+
+          dot_number:
+            $('carrierDOT')
+              .value
+              .trim() ||
+            null,
+
+          contact_name:
+            $('carrierContact')
+              .value
+              .trim() ||
+            null,
+
+          phone:
+            $('carrierPhone')
+              .value
+              .trim() ||
+            null,
+
+          email:
+            $('carrierEmail')
+              .value
+              .trim() ||
+            null,
+
+          address:
+            $('carrierAddress')
+              .value
+              .trim() ||
+            null,
+
+          notes:
+            $('carrierNotes')
+              .value
+              .trim() ||
+            null,
+
+          status:
+            $('carrierStatus')
+              .value,
+
+          created_by:
+            user.id
+        };
+
+
+        if (
+          !payload.company_name
+        ) {
+
+          toast(
+            '⚠️ Company name is required'
+          );
+
+          return;
+        }
+
+
+        const {
+          data,
+          error
+        } =
+          await sb
+            .from(
+              'carriers'
+            )
+            .insert(
+              payload
+            )
+            .select()
+            .single();
+
+
+        if (error) {
+
+          toast(
+            '❌ ' +
+            error.message
+          );
+
+          return;
+        }
+
+
+        await logAction(
+          'Added carrier',
+          'carrier',
+          data.id,
+          payload.company_name
+        );
+
+
+        e.target.reset();
+
+
+        $('carrierFormCard')
+          ?.classList
+          .add(
+            'hidden'
+          );
+
+
+        await loadWorkspaceData();
+
+
+        toast(
+          '🏢 Carrier added'
+        );
+      }
+    );
+}
+
+
+/* ============================================================
    TRUCK FORM
 ============================================================ */
 
@@ -2202,10 +2688,31 @@ $('truckForm')
       e.preventDefault();
 
 
+      const selectedCarrier =
+        $('truckCarrier')
+          ?.value ||
+        null;
+
+
+      if (
+        !selectedCarrier
+      ) {
+
+        toast(
+          '⚠️ Choose a carrier first'
+        );
+
+        return;
+      }
+
+
       const payload = {
 
         org_id:
           org.id,
+
+        carrier_id:
+          selectedCarrier,
 
         truck_no:
           $('truckNo')
@@ -2272,14 +2779,18 @@ $('truckForm')
       }
 
 
-      await gainXP(5);
+      await gainXP(
+        5
+      );
 
 
       await logAction(
         'Added truck',
         'truck',
         data.id,
-        payload.truck_no
+        `${carrierName(
+          payload.carrier_id
+        )} · Truck ${payload.truck_no}`
       );
 
 
@@ -2300,6 +2811,8 @@ $('truckForm')
       );
     }
   );
+
+
 /* ============================================================
    LOAD FORM
 ============================================================ */
@@ -2311,16 +2824,6 @@ $('loadForm')
 
       e.preventDefault();
 
-
-      /*
-       * Optional document selected while
-       * the dispatcher is booking the load.
-       *
-       * These fields will be added to index.html:
-       *
-       * loadDocumentType
-       * loadDocumentFile
-       */
 
       const firstDocumentFile =
         $('loadDocumentFile')
@@ -2334,15 +2837,31 @@ $('loadForm')
         'RC';
 
 
+      const truckId =
+        $('loadTruck')
+          .value ||
+        null;
+
+
+      const selectedTruck =
+        trucks.find(
+          t =>
+            String(
+              t.id
+            ) ===
+            String(
+              truckId
+            )
+        );
+
+
       const payload = {
 
         org_id:
           org.id,
 
         truck_id:
-          $('loadTruck')
-            .value ||
-          null,
+          truckId,
 
         broker:
           $('loadBroker')
@@ -2445,21 +2964,26 @@ $('loadForm')
       }
 
 
-      await gainXP(10);
+      await gainXP(
+        10
+      );
 
 
       await logAction(
         'Booked load',
         'load',
         data.id,
-        `${payload.origin} → ${payload.destination} · ${money(payload.rate)}`
+        `${
+          selectedTruck
+            ? carrierName(
+                selectedTruck.carrier_id
+              ) + ' · '
+            : ''
+        }${payload.origin} → ${payload.destination} · ${money(
+          payload.rate
+        )}`
       );
 
-
-      /*
-       * Upload first RC/BOL/POD etc.
-       * if the dispatcher selected a file.
-       */
 
       if (
         firstDocumentFile
@@ -2630,10 +3154,10 @@ async function addTask(
         priority,
 
         due_date:
-          due || null,
+          due ||
+          null,
 
         notes
-
       })
       .select()
       .single();
@@ -2672,10 +3196,13 @@ $('quickTaskForm')
 
       const value =
         $('quickTask')
-          .value.trim();
+          .value
+          .trim();
 
 
-      if (!value) {
+      if (
+        !value
+      ) {
         return;
       }
 
@@ -2685,8 +3212,9 @@ $('quickTaskForm')
       );
 
 
-      $('quickTask').value =
-        '';
+      $('quickTask')
+        .value =
+          '';
     }
   );
 
@@ -2702,7 +3230,8 @@ $('taskForm')
       await addTask(
 
         $('taskTitle')
-          .value.trim(),
+          .value
+          .trim(),
 
         $('taskCategory')
           .value,
@@ -2714,7 +3243,8 @@ $('taskForm')
           .value,
 
         $('taskNotes')
-          .value.trim()
+          .value
+          .trim()
       );
 
 
@@ -2727,8 +3257,6 @@ $('taskForm')
         );
     }
   );
-
-
 /* ============================================================
    CASES
 ============================================================ */
@@ -2799,7 +3327,9 @@ $('caseForm')
       }
 
 
-      await gainXP(20);
+      await gainXP(
+        20
+      );
 
 
       await logAction(
@@ -2907,7 +3437,9 @@ $('learningForm')
       }
 
 
-      await gainXP(15);
+      await gainXP(
+        15
+      );
 
 
       await logAction(
@@ -2943,7 +3475,10 @@ $('learningForm')
 
 function renderAll() {
 
+  refreshCarrierFilterOptions();
+
   renderDashboard();
+  renderCarriers();
   renderFleet();
   renderLoads();
   renderIssues();
@@ -2971,8 +3506,20 @@ function renderDashboard() {
   }
 
 
+  const visibleTrucks =
+    filteredTrucks();
+
+
+  const visibleLoads =
+    filteredLoads();
+
+
+  const visibleIssues =
+    filteredIssues();
+
+
   const activeLoads =
-    loads.filter(
+    visibleLoads.filter(
       l =>
         ![
           'Delivered',
@@ -2984,7 +3531,7 @@ function renderDashboard() {
 
 
   const gross =
-    loads.reduce(
+    visibleLoads.reduce(
       (
         sum,
         l
@@ -2998,7 +3545,7 @@ function renderDashboard() {
 
 
   const miles =
-    loads.reduce(
+    visibleLoads.reduce(
       (
         sum,
         l
@@ -3013,7 +3560,7 @@ function renderDashboard() {
 
 
   const openIssues =
-    issues.filter(
+    visibleIssues.filter(
       i =>
         !i.solved
     );
@@ -3028,11 +3575,24 @@ function renderDashboard() {
 
 
   const assignedTrucks =
-    trucks.filter(
+    visibleTrucks.filter(
       t =>
         t.assigned_to ===
         user.id
     );
+
+
+  const selectedCarrier =
+    carrierFilter ===
+      'all'
+      ? null
+      : carriers.find(
+          c =>
+            String(c.id) ===
+            String(
+              carrierFilter
+            )
+        );
 
 
   $('welcomeTitle')
@@ -3044,6 +3604,21 @@ function renderDashboard() {
       }, ${
         profile.display_name
       }?`;
+
+
+  const welcomeSub =
+    $('welcomeSub');
+
+
+  if (
+    welcomeSub
+  ) {
+
+    welcomeSub.textContent =
+      selectedCarrier
+        ? `Viewing ${selectedCarrier.company_name} — trucks, loads and issues are filtered to this carrier.`
+        : 'Protect service, keep trucks moving, document what you learn.';
+  }
 
 
   $('xpValue')
@@ -3074,7 +3649,7 @@ function renderDashboard() {
 
   $('statTrucks')
     .textContent =
-      trucks.length;
+      visibleTrucks.length;
 
 
   $('statAssigned')
@@ -3178,7 +3753,7 @@ function renderDashboard() {
 
 
   const available =
-    trucks.filter(
+    visibleTrucks.filter(
       t =>
         t.status ===
         'Available'
@@ -3230,10 +3805,13 @@ function renderDashboard() {
       ],
 
       [
-        '🧠 Knowledge',
-        cases.length +
-        learning.length,
-        'Cases + learning'
+        '🏢 Active Carriers',
+        carriers.filter(
+          c =>
+            c.status ===
+            'active'
+        ).length,
+        'Client companies'
       ]
 
     ]
@@ -3282,13 +3860,15 @@ function statusBadge(s) {
       'Available',
       'Delivered',
       'Covered',
-      'Resolved'
+      'Resolved',
+      'active'
     ].includes(s)
       ? 'good'
       : [
           'Breakdown',
           'Cancelled',
-          'Critical'
+          'Critical',
+          'inactive'
         ].includes(s)
       ? 'danger'
       : 'warn';
@@ -3303,45 +3883,586 @@ function statusBadge(s) {
 
 
 /* ============================================================
-   FLEET
+   CARRIERS
 ============================================================ */
 
-function renderFleet() {
+function carrierTrucks(
+  carrierId
+) {
 
-  $('fleetGrid')
-    .innerHTML =
-      trucks
-        .map(
-          t => `
-            <article class="card truck-card">
+  return trucks.filter(
+    t =>
+      String(
+        t.carrier_id ||
+        ''
+      ) ===
+      String(
+        carrierId
+      )
+  );
+}
+
+
+function carrierLoads(
+  carrierId
+) {
+
+  return loads.filter(
+    l =>
+      String(
+        l.trucks
+          ?.carrier_id ||
+        ''
+      ) ===
+      String(
+        carrierId
+      )
+  );
+}
+
+
+function renderCarriers() {
+
+  const grid =
+    $('carrierGrid');
+
+
+  if (
+    !grid
+  ) {
+    return;
+  }
+
+
+  grid.innerHTML =
+    carriers
+      .map(
+        c => {
+
+          const carrierTruckList =
+            carrierTrucks(
+              c.id
+            );
+
+
+          const carrierLoadList =
+            carrierLoads(
+              c.id
+            );
+
+
+          const activeLoadList =
+            carrierLoadList.filter(
+              l =>
+                ![
+                  'Delivered',
+                  'Cancelled'
+                ].includes(
+                  l.status
+                )
+            );
+
+
+          const delivered =
+            carrierLoadList.filter(
+              l =>
+                l.status ===
+                'Delivered'
+            ).length;
+
+
+          const gross =
+            carrierLoadList.reduce(
+              (
+                sum,
+                l
+              ) =>
+                sum +
+                Number(
+                  l.rate ||
+                  0
+                ),
+              0
+            );
+
+
+          const available =
+            carrierTruckList.filter(
+              t =>
+                t.status ===
+                'Available'
+            ).length;
+
+
+          return `
+            <article
+              class="card carrier-card"
+            >
 
               <div class="top">
 
                 <div>
 
                   <p class="eyebrow">
-                    TRUCK ${esc(
-                      t.truck_no
-                    )}
+                    🏢 CARRIER / CLIENT
                   </p>
 
                   <h3>
                     ${esc(
-                      t.driver_name
+                      c.company_name
                     )}
                   </h3>
 
                   <div class="meta">
-                    ${esc(
-                      t.equipment
-                    )}
+
+                    ${
+                      c.mc_number
+                        ? `MC: ${esc(
+                            c.mc_number
+                          )}`
+                        : 'MC: —'
+                    }
+
                     ·
-                    ${esc(
-                      t.driver_type
-                    )}
+
+                    ${
+                      c.dot_number
+                        ? `DOT: ${esc(
+                            c.dot_number
+                          )}`
+                        : 'DOT: —'
+                    }
+
                   </div>
 
                 </div>
+
+
+                ${statusBadge(
+                  c.status
+                )}
+
+              </div>
+
+
+              <div class="metric-row">
+
+                <div class="metric">
+
+                  <small>
+                    🚚 Trucks
+                  </small>
+
+                  <strong>
+                    ${carrierTruckList.length}
+                  </strong>
+
+                </div>
+
+
+                <div class="metric">
+
+                  <small>
+                    🟢 Available
+                  </small>
+
+                  <strong>
+                    ${available}
+                  </strong>
+
+                </div>
+
+
+                <div class="metric">
+
+                  <small>
+                    📦 Active Loads
+                  </small>
+
+                  <strong>
+                    ${activeLoadList.length}
+                  </strong>
+
+                </div>
+
+
+                <div class="metric">
+
+                  <small>
+                    ✅ Delivered
+                  </small>
+
+                  <strong>
+                    ${delivered}
+                  </strong>
+
+                </div>
+
+
+                <div class="metric">
+
+                  <small>
+                    💰 Gross
+                  </small>
+
+                  <strong>
+                    ${money(
+                      gross
+                    )}
+                  </strong>
+
+                </div>
+
+              </div>
+
+
+              ${
+                c.contact_name ||
+                c.phone ||
+                c.email
+                  ? `
+                    <div
+                      class="notice"
+                      style="margin-top:12px"
+                    >
+
+                      ${
+                        c.contact_name
+                          ? `
+                            <div>
+                              👤
+                              <b>
+                                ${esc(
+                                  c.contact_name
+                                )}
+                              </b>
+                            </div>
+                          `
+                          : ''
+                      }
+
+                      ${
+                        c.phone
+                          ? `
+                            <div class="meta">
+                              📞
+                              ${esc(
+                                c.phone
+                              )}
+                            </div>
+                          `
+                          : ''
+                      }
+
+                      ${
+                        c.email
+                          ? `
+                            <div class="meta">
+                              ✉️
+                              ${esc(
+                                c.email
+                              )}
+                            </div>
+                          `
+                          : ''
+                      }
+
+                    </div>
+                  `
+                  : ''
+              }
+
+
+              ${
+                c.address
+                  ? `
+                    <div class="meta">
+                      📍 ${esc(
+                        c.address
+                      )}
+                    </div>
+                  `
+                  : ''
+              }
+
+
+              ${
+                c.notes
+                  ? `
+                    <div
+                      class="meta"
+                      style="margin-top:8px"
+                    >
+                      📝
+                      ${esc(
+                        c.notes
+                      )}
+                    </div>
+                  `
+                  : ''
+              }
+
+
+              <div
+                style="
+                  display:flex;
+                  gap:8px;
+                  flex-wrap:wrap;
+                  margin-top:14px;
+                "
+              >
+
+                <button
+                  class="btn ghost carrier-view"
+                  type="button"
+                  data-carrier="${c.id}"
+                >
+                  👁 View Operation
+                </button>
+
+                ${
+                  [
+                    'admin',
+                    'dispatcher'
+                  ].includes(
+                    myMembership?.role
+                  )
+                    ? `
+                      <button
+                        class="btn ghost carrier-toggle-status"
+                        type="button"
+                        data-carrier="${c.id}"
+                      >
+                        ${
+                          c.status ===
+                            'active'
+                            ? '⚪ Set Inactive'
+                            : '🟢 Set Active'
+                        }
+                      </button>
+                    `
+                    : ''
+                }
+
+              </div>
+
+            </article>
+          `;
+        }
+      )
+      .join('') ||
+
+    `
+      <div class="card muted">
+        No carriers yet. Add the first trucking company you dispatch for.
+      </div>
+    `;
+
+
+  document
+    .querySelectorAll(
+      '.carrier-view'
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          'click',
+          () => {
+
+            carrierFilter =
+              button.dataset.carrier;
+
+
+            refreshCarrierFilterOptions();
+
+
+            renderDashboard();
+            renderFleet();
+            renderLoads();
+            renderIssues();
+
+
+            showPanel(
+              'dashboard'
+            );
+
+
+            toast(
+              `🏢 Viewing ${carrierName(
+                carrierFilter
+              )}`
+            );
+          }
+        );
+      }
+    );
+
+
+  document
+    .querySelectorAll(
+      '.carrier-toggle-status'
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          'click',
+          async () => {
+
+            const carrier =
+              carriers.find(
+                c =>
+                  String(
+                    c.id
+                  ) ===
+                  String(
+                    button.dataset.carrier
+                  )
+              );
+
+
+            if (
+              !carrier
+            ) {
+              return;
+            }
+
+
+            const newStatus =
+              carrier.status ===
+                'active'
+                ? 'inactive'
+                : 'active';
+
+
+            const {
+              error
+            } =
+              await sb
+                .from(
+                  'carriers'
+                )
+                .update({
+
+                  status:
+                    newStatus,
+
+                  updated_at:
+                    new Date()
+                      .toISOString()
+
+                })
+                .eq(
+                  'id',
+                  carrier.id
+                )
+                .eq(
+                  'org_id',
+                  org.id
+                );
+
+
+            if (
+              error
+            ) {
+
+              toast(
+                '❌ ' +
+                error.message
+              );
+
+              return;
+            }
+
+
+            await logAction(
+              'Updated carrier status',
+              'carrier',
+              carrier.id,
+              `${carrier.company_name} → ${newStatus}`
+            );
+
+
+            await loadWorkspaceData();
+
+
+            toast(
+              newStatus ===
+                'active'
+                ? '🟢 Carrier activated'
+                : '⚪ Carrier marked inactive'
+            );
+          }
+        );
+      }
+    );
+}
+
+
+/* ============================================================
+   FLEET
+============================================================ */
+
+function renderFleet() {
+
+  const visibleTrucks =
+    filteredTrucks();
+
+
+  $('fleetGrid')
+    .innerHTML =
+      visibleTrucks
+        .map(
+          t => `
+
+            <article
+              class="card truck-card"
+            >
+
+              <div class="top">
+
+                <div>
+
+                  <p class="eyebrow">
+                    🏢
+                    ${esc(
+                      carrierName(
+                        t.carrier_id
+                      )
+                    )}
+                  </p>
+
+                  <h3>
+                    🚚 Truck
+                    ${esc(
+                      t.truck_no
+                    )}
+                  </h3>
+
+                  <div class="meta">
+
+                    👤
+                    ${esc(
+                      t.driver_name
+                    )}
+
+                    ·
+
+                    ${esc(
+                      t.equipment
+                    )}
+
+                    ·
+
+                    ${esc(
+                      t.driver_type
+                    )}
+
+                  </div>
+
+                </div>
+
 
                 ${statusBadge(
                   t.status
@@ -3388,7 +4509,7 @@ function renderFleet() {
                 <div class="metric">
 
                   <small>
-                    🎯 Daily target
+                    🎯 Daily Target
                   </small>
 
                   <strong>
@@ -3403,7 +4524,7 @@ function renderFleet() {
                 <div class="metric">
 
                   <small>
-                    Updated
+                    🕒 Updated
                   </small>
 
                   <strong>
@@ -3423,76 +4544,50 @@ function renderFleet() {
         )
         .join('') ||
 
-      '<div class="card muted">No trucks yet.</div>';
+      `
+        <div class="card muted">
+          ${
+            carrierFilter ===
+              'all'
+              ? 'No trucks yet.'
+              : 'No trucks are assigned to this carrier yet.'
+          }
+        </div>
+      `;
+}
+/* ============================================================
+   LOAD DOCUMENT HELPERS
+============================================================ */
+
+function loadDocs(loadId) {
+  return loadDocuments.filter(
+    doc => String(doc.load_id) === String(loadId)
+  );
+}
+
+function hasLoadDoc(loadId, type) {
+  return loadDocs(loadId).some(
+    doc => doc.document_type === type
+  );
+}
+
+function documentIcon(type) {
+  if (type === 'RC') return '📄';
+  if (type === 'BOL') return '📋';
+  if (type === 'POD') return '✅';
+  if (type === 'Lumper') return '💵';
+  return '📎';
+}
+
+function safeFileName(name) {
+  return String(name || 'document')
+    .replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
 
 /* ============================================================
-   LOAD DOCUMENT SYSTEM
+   UPLOAD LOAD DOCUMENT
 ============================================================ */
-
-function loadDocs(loadId) {
-
-  return loadDocuments.filter(
-    doc =>
-      String(
-        doc.load_id
-      ) ===
-      String(
-        loadId
-      )
-  );
-}
-
-
-function hasLoadDoc(
-  loadId,
-  type
-) {
-
-  return loadDocs(
-    loadId
-  ).some(
-    doc =>
-      doc.document_type ===
-      type
-  );
-}
-
-
-function documentIcon(type) {
-
-  if (
-    type === 'RC'
-  ) return '📄';
-
-  if (
-    type === 'BOL'
-  ) return '📋';
-
-  if (
-    type === 'POD'
-  ) return '✅';
-
-  if (
-    type === 'Lumper'
-  ) return '💵';
-
-  return '📎';
-}
-
-
-function safeFileName(name) {
-
-  return String(
-    name ||
-    'document'
-  ).replace(
-    /[^a-zA-Z0-9._-]/g,
-    '_'
-  );
-}
-
 
 async function uploadLoadDocument(
   loadId,
@@ -3504,7 +4599,6 @@ async function uploadLoadDocument(
     return false;
   }
 
-
   if (
     ![
       'admin',
@@ -3513,7 +4607,6 @@ async function uploadLoadDocument(
       myMembership?.role
     )
   ) {
-
     toast(
       '❌ You cannot upload load documents'
     );
@@ -3536,7 +4629,6 @@ async function uploadLoadDocument(
       file.type
     )
   ) {
-
     toast(
       '❌ Use PDF, JPG, PNG or WEBP files'
     );
@@ -3546,16 +4638,13 @@ async function uploadLoadDocument(
 
 
   const maxFileSize =
-    20 *
-    1024 *
-    1024;
+    20 * 1024 * 1024;
 
 
   if (
     file.size >
     maxFileSize
   ) {
-
     toast(
       '❌ Maximum document size is 20 MB'
     );
@@ -3565,10 +4654,8 @@ async function uploadLoadDocument(
 
 
   const unique =
-    window.crypto
-      ?.randomUUID
-      ? window.crypto
-          .randomUUID()
+    window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
       : `${Date.now()}-${Math.random()
           .toString(16)
           .slice(2)}`;
@@ -3586,8 +4673,7 @@ async function uploadLoadDocument(
 
 
   const {
-    error:
-      uploadError
+    error: uploadError
   } =
     await sb.storage
       .from(
@@ -3599,27 +4685,22 @@ async function uploadLoadDocument(
         {
           cacheControl:
             '3600',
-
           upsert:
             false
         }
       );
 
 
-  if (
-    uploadError
-  ) {
+  if (uploadError) {
 
     console.error(
       'Document upload error:',
       uploadError
     );
 
-
     setSync(
       '☁️ Synced'
     );
-
 
     toast(
       '❌ Upload failed: ' +
@@ -3631,18 +4712,14 @@ async function uploadLoadDocument(
 
 
   const {
-    data:
-      documentRow,
-
-    error:
-      dbError
+    data: documentRow,
+    error: dbError
   } =
     await sb
       .from(
         'load_documents'
       )
       .insert({
-
         org_id:
           org.id,
 
@@ -3660,21 +4737,17 @@ async function uploadLoadDocument(
 
         storage_path:
           storagePath
-
       })
       .select()
       .single();
 
 
-  if (
-    dbError
-  ) {
+  if (dbError) {
 
     console.error(
-      'Document database error:',
+      'Document DB error:',
       dbError
     );
-
 
     await sb.storage
       .from(
@@ -3684,11 +4757,9 @@ async function uploadLoadDocument(
         storagePath
       ]);
 
-
     setSync(
       '☁️ Synced'
     );
-
 
     toast(
       '❌ Document could not be saved: ' +
@@ -3699,10 +4770,7 @@ async function uploadLoadDocument(
   }
 
 
-  if (
-    documentRow
-  ) {
-
+  if (documentRow) {
     loadDocuments.unshift(
       documentRow
     );
@@ -3721,15 +4789,17 @@ async function uploadLoadDocument(
     '☁️ Synced'
   );
 
-
   toast(
     `✅ ${type} uploaded`
   );
 
-
   return true;
 }
 
+
+/* ============================================================
+   OPEN LOAD DOCUMENT
+============================================================ */
 
 async function openLoadDocument(
   documentId
@@ -3738,12 +4808,8 @@ async function openLoadDocument(
   const doc =
     loadDocuments.find(
       d =>
-        String(
-          d.id
-        ) ===
-        String(
-          documentId
-        )
+        String(d.id) ===
+        String(documentId)
     );
 
 
@@ -3766,9 +4832,7 @@ async function openLoadDocument(
       );
 
 
-  if (
-    error
-  ) {
+  if (error) {
 
     toast(
       '❌ Cannot open document: ' +
@@ -3779,9 +4843,7 @@ async function openLoadDocument(
   }
 
 
-  if (
-    !data?.signedUrl
-  ) {
+  if (!data?.signedUrl) {
 
     toast(
       '❌ Document link could not be created'
@@ -3798,6 +4860,10 @@ async function openLoadDocument(
   );
 }
 
+
+/* ============================================================
+   DELETE LOAD DOCUMENT
+============================================================ */
 
 async function deleteLoadDocument(
   documentId
@@ -3818,12 +4884,8 @@ async function deleteLoadDocument(
   const doc =
     loadDocuments.find(
       d =>
-        String(
-          d.id
-        ) ===
-        String(
-          documentId
-        )
+        String(d.id) ===
+        String(documentId)
     );
 
 
@@ -3838,41 +4900,17 @@ async function deleteLoadDocument(
     );
 
 
-  if (
-    !confirmed
-  ) {
+  if (!confirmed) {
     return;
   }
 
 
-  const {
-    error:
-      storageError
-  } =
-    await sb.storage
-      .from(
-        'load-documents'
-      )
-      .remove([
-        doc.storage_path
-      ]);
-
-
-  if (
-    storageError
-  ) {
-
-    toast(
-      '❌ Could not delete file: ' +
-      storageError.message
-    );
-
-    return;
-  }
-
+  /*
+   * Delete database record first.
+   */
 
   const {
-    error
+    error: dbError
   } =
     await sb
       .from(
@@ -3885,28 +4923,47 @@ async function deleteLoadDocument(
       );
 
 
-  if (
-    error
-  ) {
+  if (dbError) {
 
     toast(
       '❌ ' +
-      error.message
+      dbError.message
     );
 
     return;
   }
 
 
+  /*
+   * Then remove Storage file.
+   */
+
+  const {
+    error: storageError
+  } =
+    await sb.storage
+      .from(
+        'load-documents'
+      )
+      .remove([
+        doc.storage_path
+      ]);
+
+
+  if (storageError) {
+
+    console.error(
+      'Storage delete error:',
+      storageError
+    );
+  }
+
+
   loadDocuments =
     loadDocuments.filter(
       d =>
-        String(
-          d.id
-        ) !==
-        String(
-          doc.id
-        )
+        String(d.id) !==
+        String(doc.id)
     );
 
 
@@ -3928,9 +4985,11 @@ async function deleteLoadDocument(
 }
 
 
-function documentPanel(
-  load
-) {
+/* ============================================================
+   DOCUMENT PANEL
+============================================================ */
+
+function documentPanel(load) {
 
   const docs =
     loadDocs(
@@ -3966,14 +5025,7 @@ function documentPanel(
 
 
   return `
-    <div
-      class="load-documents"
-      style="
-        padding:12px;
-        border-radius:12px;
-        border:1px solid rgba(148,163,184,.18);
-      "
-    >
+    <div class="load-documents">
 
       <div
         style="
@@ -4021,21 +5073,10 @@ function documentPanel(
       ${
         podWarning
           ? `
-            <div
-              class="notice"
-              style="
-                margin-top:10px
-              "
-            >
-
+            <div class="notice">
               🚨
-              <b>
-                POD MISSING:
-              </b>
-
-              This load is marked
-              Delivered.
-
+              <b>POD MISSING:</b>
+              This load is marked Delivered.
             </div>
           `
           : ''
@@ -4056,35 +5097,23 @@ function documentPanel(
             ? docs
                 .map(
                   doc => `
-                    <div
-                      class="pill"
-                      style="
-                        display:flex;
-                        align-items:center;
-                        gap:6px;
-                      "
-                    >
+                    <div class="pill">
 
                       <button
                         class="link-btn open-load-doc"
                         data-doc="${doc.id}"
                         type="button"
                       >
-
                         ${documentIcon(
                           doc.document_type
                         )}
-
                         ${esc(
                           doc.document_type
                         )}
-
                         —
-
                         ${esc(
                           doc.file_name
                         )}
-
                       </button>
 
 
@@ -4144,14 +5173,12 @@ function documentPanel(
             >
 
               <label>
-
                 Document type
 
                 <select
                   class="extra-doc-type"
                   data-load="${load.id}"
                 >
-
                   <option value="RC">
                     📄 RC
                   </option>
@@ -4171,14 +5198,12 @@ function documentPanel(
                   <option value="Other">
                     📎 Other
                   </option>
-
                 </select>
 
               </label>
 
 
               <label>
-
                 File
 
                 <input
@@ -4187,7 +5212,6 @@ function documentPanel(
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.webp"
                 >
-
               </label>
 
 
@@ -4208,6 +5232,10 @@ function documentPanel(
   `;
 }
 
+
+/* ============================================================
+   DOCUMENT BUTTONS
+============================================================ */
 
 function bindLoadDocumentButtons() {
 
@@ -4279,13 +5307,10 @@ function bindLoadDocumentButtons() {
 
 
             const file =
-              fileInput
-                ?.files?.[0];
+              fileInput?.files?.[0];
 
 
-            if (
-              !file
-            ) {
+            if (!file) {
 
               toast(
                 '⚠️ Choose a document first'
@@ -4295,7 +5320,7 @@ function bindLoadDocumentButtons() {
             }
 
 
-            const previousText =
+            const oldText =
               button.textContent;
 
 
@@ -4311,8 +5336,7 @@ function bindLoadDocumentButtons() {
               await uploadLoadDocument(
                 loadId,
                 file,
-                typeSelect
-                  ?.value ||
+                typeSelect?.value ||
                 'Other'
               );
 
@@ -4322,7 +5346,7 @@ function bindLoadDocumentButtons() {
 
 
             button.textContent =
-              previousText;
+              oldText;
 
 
             if (
@@ -4333,43 +5357,24 @@ function bindLoadDocumentButtons() {
               fileInput.value =
                 '';
 
-              renderLoads();
+              await loadWorkspaceData();
             }
           }
         );
       }
     );
 }
+
+
 /* ============================================================
-   LOADS
+   LOAD MATH
 ============================================================ */
 
-function rpm(l) {
-
-  return Number(
-    l.loaded_miles
-  ) > 0
-    ? (
-        Number(
-          l.rate
-        ) /
-        Number(
-          l.loaded_miles
-        )
-      ).toFixed(2)
-    : '0.00';
-}
-
-
-function allIn(l) {
+function rpm(load) {
 
   const miles =
     Number(
-      l.loaded_miles ||
-      0
-    ) +
-    Number(
-      l.deadhead_miles ||
+      load.loaded_miles ||
       0
     );
 
@@ -4377,13 +5382,43 @@ function allIn(l) {
   return miles > 0
     ? (
         Number(
-          l.rate
+          load.rate ||
+          0
         ) /
         miles
       ).toFixed(2)
     : '0.00';
 }
 
+
+function allIn(load) {
+
+  const miles =
+    Number(
+      load.loaded_miles ||
+      0
+    ) +
+    Number(
+      load.deadhead_miles ||
+      0
+    );
+
+
+  return miles > 0
+    ? (
+        Number(
+          load.rate ||
+          0
+        ) /
+        miles
+      ).toFixed(2)
+    : '0.00';
+}
+
+
+/* ============================================================
+   LOAD TABLE
+============================================================ */
 
 function loadTable(
   list,
@@ -4398,7 +5433,11 @@ function loadTable(
         <tr>
 
           <th>
-            Truck
+            Carrier
+          </th>
+
+          <th>
+            Truck / Driver
           </th>
 
           <th>
@@ -4433,7 +5472,6 @@ function loadTable(
             Status
           </th>
 
-
           ${
             actions
               ? `
@@ -4453,49 +5491,75 @@ function loadTable(
 
         ${
           list.length
-
             ? list
                 .map(
-                  l => {
+                  load => {
+
+                    const carrier =
+                      carrierName(
+                        load.trucks?.carrier_id
+                      );
+
 
                     const hasRC =
                       hasLoadDoc(
-                        l.id,
+                        load.id,
                         'RC'
                       );
 
 
                     const hasBOL =
                       hasLoadDoc(
-                        l.id,
+                        load.id,
                         'BOL'
                       );
 
 
                     const hasPOD =
                       hasLoadDoc(
-                        l.id,
+                        load.id,
                         'POD'
                       );
 
 
                     const podMissing =
-                      l.status ===
+                      load.status ===
                         'Delivered' &&
                       !hasPOD;
 
 
                     return `
-
                       <tr>
 
                         <td>
+                          <b>
+                            🏢 ${esc(
+                              carrier
+                            )}
+                          </b>
+                        </td>
 
-                          ${esc(
-                            l.trucks
-                              ?.truck_no ||
-                            '—'
-                          )}
+
+                        <td>
+
+                          <b>
+                            🚚 ${esc(
+                              load.trucks
+                                ?.truck_no ||
+                              '—'
+                            )}
+                          </b>
+
+                          <br>
+
+                          <span class="meta">
+                            👤
+                            ${esc(
+                              load.trucks
+                                ?.driver_name ||
+                              'Driver not set'
+                            )}
+                          </span>
 
                         </td>
 
@@ -4504,7 +5568,7 @@ function loadTable(
 
                           <b>
                             ${esc(
-                              l.origin
+                              load.origin
                             )}
                           </b>
 
@@ -4513,10 +5577,9 @@ function loadTable(
                           <span class="meta">
                             →
                             ${esc(
-                              l.destination
+                              load.destination
                             )}
                           </span>
-
 
                           ${
                             podMissing
@@ -4525,8 +5588,7 @@ function loadTable(
                                   class="meta"
                                   style="
                                     color:var(--danger);
-                                    margin-top:5px;
-                                    font-weight:700;
+                                    font-weight:800;
                                   "
                                 >
                                   🚨 POD MISSING
@@ -4541,14 +5603,14 @@ function loadTable(
                         <td>
 
                           ${esc(
-                            l.broker
+                            load.broker
                           )}
 
                           <br>
 
                           <span class="meta">
                             ${esc(
-                              l.source ||
+                              load.source ||
                               '—'
                             )}
                           </span>
@@ -4557,105 +5619,67 @@ function loadTable(
 
 
                         <td>
-
                           ${money(
-                            l.rate
+                            load.rate
                           )}
-
                         </td>
 
 
                         <td>
-
-                          $${rpm(l)}
-
+                          $${rpm(load)}
                         </td>
 
 
                         <td>
-
-                          $${allIn(l)}
-
+                          $${allIn(load)}
                         </td>
 
 
                         <td>
-
                           ${esc(
                             memberName(
-                              l.assigned_to
+                              load.assigned_to
                             )
                           )}
-
                         </td>
 
 
                         <td>
 
-                          <div
-                            style="
-                              display:flex;
-                              flex-direction:column;
-                              gap:4px;
-                              min-width:90px;
-                            "
-                          >
+                          <div class="meta">
+                            📄 RC
+                            ${
+                              hasRC
+                                ? '✅'
+                                : '❌'
+                            }
+                          </div>
 
-                            <span
-                              class="meta"
-                              style="
-                                white-space:nowrap;
-                              "
-                            >
-                              📄 RC
-                              ${
-                                hasRC
-                                  ? '✅'
-                                  : '❌'
-                              }
-                            </span>
+                          <div class="meta">
+                            📋 BOL
+                            ${
+                              hasBOL
+                                ? '✅'
+                                : '❌'
+                            }
+                          </div>
 
-
-                            <span
-                              class="meta"
-                              style="
-                                white-space:nowrap;
-                              "
-                            >
-                              📋 BOL
-                              ${
-                                hasBOL
-                                  ? '✅'
-                                  : '❌'
-                              }
-                            </span>
-
-
-                            <span
-                              class="meta"
-                              style="
-                                white-space:nowrap;
-                              "
-                            >
-                              ✅ POD
-                              ${
-                                hasPOD
-                                  ? '✅'
-                                  : '❌'
-                              }
-                            </span>
-
+                          <div class="meta">
+                            ✅ POD
+                            ${
+                              hasPOD
+                                ? '✅'
+                                : '❌'
+                            }
                           </div>
 
                         </td>
 
 
                         <td>
-
                           ${statusBadge(
-                            l.status
+                            load.status
                           )}
-
                         </td>
 
 
@@ -4666,7 +5690,7 @@ function loadTable(
 
                                 <select
                                   class="load-status"
-                                  data-id="${l.id}"
+                                  data-id="${load.id}"
                                 >
 
                                   <option>
@@ -4709,45 +5733,34 @@ function loadTable(
                             <tr>
 
                               <td
-                                colspan="10"
-                                style="
-                                  padding-top:0;
-                                "
+                                colspan="11"
                               >
-
                                 ${documentPanel(
-                                  l
+                                  load
                                 )}
-
                               </td>
 
                             </tr>
                           `
                           : ''
                       }
-
                     `;
                   }
                 )
                 .join('')
-
             : `
               <tr>
-
                 <td
                   colspan="${
                     actions
-                      ? '10'
-                      : '9'
+                      ? '11'
+                      : '10'
                   }"
                 >
-
                   <div class="meta">
-                    No loads recorded yet.
+                    No loads recorded.
                   </div>
-
                 </td>
-
               </tr>
             `
         }
@@ -4759,12 +5772,20 @@ function loadTable(
 }
 
 
+/* ============================================================
+   RENDER LOADS
+============================================================ */
+
 function renderLoads() {
+
+  const visibleLoads =
+    filteredLoads();
+
 
   $('loadsTable')
     .innerHTML =
       loadTable(
-        loads,
+        visibleLoads,
         true
       );
 
@@ -4779,9 +5800,7 @@ function renderLoads() {
         const load =
           loads.find(
             x =>
-              String(
-                x.id
-              ) ===
+              String(x.id) ===
               String(
                 select.dataset.id
               )
@@ -4802,146 +5821,141 @@ function renderLoads() {
             'admin',
             'dispatcher'
           ].includes(
-            myMembership.role
+            myMembership?.role
           );
 
 
-        select
-          .addEventListener(
-            'change',
-            async () => {
+        select.addEventListener(
+          'change',
+          async () => {
 
-              const oldStatus =
-                load.status;
-
-
-              const newStatus =
-                select.value;
+            const oldStatus =
+              load.status;
 
 
-              select.disabled =
-                true;
+            const newStatus =
+              select.value;
 
 
-              const {
-                error
-              } =
-                await sb
-                  .from(
-                    'loads'
-                  )
-                  .update({
-
-                    status:
-                      newStatus,
-
-                    updated_at:
-                      new Date()
-                        .toISOString()
-
-                  })
-                  .eq(
-                    'id',
-                    load.id
-                  );
+            select.disabled =
+              true;
 
 
-              if (error) {
+            const {
+              error
+            } =
+              await sb
+                .from(
+                  'loads'
+                )
+                .update({
+                  status:
+                    newStatus,
 
-                toast(
-                  '❌ ' +
-                  error.message
+                  updated_at:
+                    new Date()
+                      .toISOString()
+                })
+                .eq(
+                  'id',
+                  load.id
                 );
 
 
-                select.value =
-                  oldStatus;
+            if (error) {
 
-
-                select.disabled =
-                  false;
-
-
-                return;
-              }
-
-
-              load.status =
-                newStatus;
-
-
-              if (
-                newStatus ===
-                  'Delivered' &&
-                oldStatus !==
-                  'Delivered'
-              ) {
-
-                await gainXP(
-                  20
-                );
-              }
-
-
-              await logAction(
-                'Updated load status',
-                'load',
-                load.id,
-                `${oldStatus} → ${newStatus}`
+              toast(
+                '❌ ' +
+                error.message
               );
 
+              select.value =
+                oldStatus;
 
-              await loadWorkspaceData();
+              select.disabled =
+                false;
 
-
-              if (
-                newStatus ===
-                  'Delivered' &&
-                !hasLoadDoc(
-                  load.id,
-                  'POD'
-                )
-              ) {
-
-                toast(
-                  '🚨 Load delivered — POD is still missing'
-                );
-
-              } else {
-
-                toast(
-                  `✅ Load status: ${newStatus}`
-                );
-              }
+              return;
             }
-          );
+
+
+            load.status =
+              newStatus;
+
+
+            if (
+              newStatus ===
+                'Delivered' &&
+              oldStatus !==
+                'Delivered'
+            ) {
+
+              await gainXP(
+                20
+              );
+            }
+
+
+            await logAction(
+              'Updated load status',
+              'load',
+              load.id,
+              `${oldStatus} → ${newStatus}`
+            );
+
+
+            await loadWorkspaceData();
+
+
+            if (
+              newStatus ===
+                'Delivered' &&
+              !hasLoadDoc(
+                load.id,
+                'POD'
+              )
+            ) {
+
+              toast(
+                '🚨 Load delivered — POD is still missing'
+              );
+
+            } else {
+
+              toast(
+                `✅ Load status: ${newStatus}`
+              );
+            }
+          }
+        );
       }
     );
 
 
-  /*
-   * Connect Open / Delete / Upload
-   * buttons after the load table
-   * has been created.
-   */
-
   bindLoadDocumentButtons();
 }
+
+
 /* ============================================================
    ISSUES
 ============================================================ */
 
 function renderIssues() {
 
+  const visibleIssues =
+    filteredIssues();
+
+
   $('issuesList')
     .innerHTML =
-      issues
+      visibleIssues
         .map(
-          i => `
+          issue => `
+
             <article
               class="item issue-card ${esc(
                 String(
-                  i.priority ||
+                  issue.priority ||
                   ''
                 ).toLowerCase()
               )}"
@@ -4954,13 +5968,13 @@ function renderIssues() {
                   <h3 style="margin:0">
 
                     ${
-                      i.solved
+                      issue.solved
                         ? '✅'
                         : '🚨'
                     }
 
                     ${esc(
-                      i.title
+                      issue.title
                     )}
 
                   </h3>
@@ -4968,29 +5982,40 @@ function renderIssues() {
 
                   <div class="meta">
 
+                    🏢
                     ${esc(
-                      i.issue_type
+                      carrierName(
+                        issue.trucks
+                          ?.carrier_id
+                      )
+                    )}
+
+                    ·
+
+                    🚚
+                    ${esc(
+                      issue.trucks
+                        ?.truck_no ||
+                      '—'
                     )}
 
                     ·
 
                     ${esc(
-                      i.priority
+                      issue.issue_type
                     )}
 
-                    · Truck
+                    ·
 
                     ${esc(
-                      i.trucks
-                        ?.truck_no ||
-                      '—'
+                      issue.priority
                     )}
 
                     · Assigned:
 
                     ${esc(
                       memberName(
-                        i.assigned_to
+                        issue.assigned_to
                       )
                     )}
 
@@ -5000,9 +6025,9 @@ function renderIssues() {
 
 
                 ${statusBadge(
-                  i.solved
+                  issue.solved
                     ? 'Resolved'
-                    : i.priority
+                    : issue.priority
                 )}
 
               </div>
@@ -5010,21 +6035,24 @@ function renderIssues() {
 
               <p>
                 ${esc(
-                  i.details
+                  issue.details
                 )}
               </p>
 
 
               ${
-                i.next_action
+                issue.next_action
                   ? `
                     <div class="notice">
+
                       <b>
                         ➡️ Next action:
                       </b>
+
                       ${esc(
-                        i.next_action
+                        issue.next_action
                       )}
+
                     </div>
                   `
                   : ''
@@ -5035,18 +6063,19 @@ function renderIssues() {
 
                 <button
                   class="small-btn issue-toggle"
-                  data-id="${i.id}"
+                  data-id="${issue.id}"
                 >
                   ${
-                    i.solved
+                    issue.solved
                       ? '↩️ Reopen'
                       : '✅ Resolve'
                   }
                 </button>
 
+
                 <button
                   class="small-btn issue-case"
-                  data-id="${i.id}"
+                  data-id="${issue.id}"
                 >
                   🧠 Save as Case
                 </button>
@@ -5058,7 +6087,11 @@ function renderIssues() {
         )
         .join('') ||
 
-      '<div class="card muted">No issues recorded.</div>';
+      `
+        <div class="card muted">
+          No issues recorded.
+        </div>
+      `;
 
 
   document
@@ -5075,9 +6108,7 @@ function renderIssues() {
             const issue =
               issues.find(
                 x =>
-                  String(
-                    x.id
-                  ) ===
+                  String(x.id) ===
                   String(
                     button.dataset.id
                   )
@@ -5097,9 +6128,10 @@ function renderIssues() {
               error
             } =
               await sb
-                .from('issues')
+                .from(
+                  'issues'
+                )
                 .update({
-
                   solved,
 
                   resolved_at:
@@ -5111,7 +6143,6 @@ function renderIssues() {
                   updated_at:
                     new Date()
                       .toISOString()
-
                 })
                 .eq(
                   'id',
@@ -5139,15 +6170,11 @@ function renderIssues() {
 
 
             await logAction(
-
               solved
                 ? 'Resolved issue'
                 : 'Reopened issue',
-
               'issue',
-
               issue.id,
-
               issue.title
             );
 
@@ -5173,9 +6200,7 @@ function renderIssues() {
             const issue =
               issues.find(
                 x =>
-                  String(
-                    x.id
-                  ) ===
+                  String(x.id) ===
                   String(
                     button.dataset.id
                   )
@@ -5192,26 +6217,21 @@ function renderIssues() {
             );
 
 
-            $('caseProblem')
-              .value =
-                issue.title;
+            $('caseProblem').value =
+              issue.title;
 
-            $('caseCategory')
-              .value =
-                issue.issue_type;
+            $('caseCategory').value =
+              issue.issue_type;
 
-            $('caseSolution')
-              .value =
-                issue.details;
+            $('caseSolution').value =
+              issue.details;
 
-            $('caseLesson')
-              .value =
-                issue.next_action ||
-                '';
+            $('caseLesson').value =
+              issue.next_action ||
+              '';
 
-            $('caseVisibility')
-              .value =
-                'company';
+            $('caseVisibility').value =
+              'company';
 
 
             $('caseFormCard')
@@ -5226,11 +6246,11 @@ function renderIssues() {
 
 
 /* ============================================================
-   TASK RENDERING
+   TASKS
 ============================================================ */
 
 function taskHtml(
-  t,
+  task,
   compact = false
 ) {
 
@@ -5240,35 +6260,39 @@ function taskHtml(
       <label
         style="
           display:flex;
-          grid-template-columns:auto 1fr;
           align-items:center;
           gap:10px;
           margin:0;
-          flex:1
+          flex:1;
         "
       >
 
         <input
           class="task-check"
-          data-id="${t.id}"
+          data-id="${task.id}"
           type="checkbox"
           style="width:auto"
-          ${t.done ? 'checked' : ''}
+          ${
+            task.done
+              ? 'checked'
+              : ''
+          }
         >
 
         <span>
 
           <b
             ${
-              t.done
+              task.done
                 ? 'style="text-decoration:line-through;opacity:.55"'
                 : ''
             }
           >
             ${esc(
-              t.title
+              task.title
             )}
           </b>
+
 
           ${
             compact
@@ -5277,23 +6301,22 @@ function taskHtml(
                 <div class="meta">
 
                   ${esc(
-                    t.category ||
+                    task.category ||
                     'Task'
                   )}
 
                   ·
 
                   ${esc(
-                    t.priority ||
+                    task.priority ||
                     'Medium'
                   )}
 
                   ${
-                    t.due_date
-                      ? ' · Due ' +
-                        esc(
-                          t.due_date
-                        )
+                    task.due_date
+                      ? ` · Due ${esc(
+                          task.due_date
+                        )}`
                       : ''
                   }
 
@@ -5312,7 +6335,7 @@ function taskHtml(
           : `
             <button
               class="small-btn task-delete"
-              data-id="${t.id}"
+              data-id="${task.id}"
             >
               🗑️
             </button>
@@ -5342,9 +6365,7 @@ function bindTaskButtons(
             const task =
               tasks.find(
                 x =>
-                  String(
-                    x.id
-                  ) ===
+                  String(x.id) ===
                   String(
                     checkbox.dataset.id
                   )
@@ -5360,16 +6381,16 @@ function bindTaskButtons(
               error
             } =
               await sb
-                .from('tasks')
+                .from(
+                  'tasks'
+                )
                 .update({
-
                   done:
                     checkbox.checked,
 
                   updated_at:
                     new Date()
                       .toISOString()
-
                 })
                 .eq(
                   'id',
@@ -5403,15 +6424,11 @@ function bindTaskButtons(
 
 
             await logAction(
-
               checkbox.checked
                 ? 'Completed task'
                 : 'Reopened task',
-
               'task',
-
               task.id,
-
               task.title
             );
 
@@ -5438,7 +6455,9 @@ function bindTaskButtons(
               error
             } =
               await sb
-                .from('tasks')
+                .from(
+                  'tasks'
+                )
                 .delete()
                 .eq(
                   'id',
@@ -5469,8 +6488,8 @@ function renderTasks() {
 
   const mine =
     tasks.filter(
-      t =>
-        t.user_id ===
+      task =>
+        task.user_id ===
         user.id
     );
 
@@ -5479,12 +6498,16 @@ function renderTasks() {
     .innerHTML =
       mine
         .map(
-          t =>
-            taskHtml(t)
+          task =>
+            taskHtml(task)
         )
         .join('') ||
 
-      '<div class="card muted">No personal tasks yet.</div>';
+      `
+        <div class="card muted">
+          No personal tasks yet.
+        </div>
+      `;
 
 
   bindTaskButtons(
@@ -5501,21 +6524,21 @@ function renderCases() {
 
   const query =
     (
-      $('caseSearch')
-        .value ||
+      $('caseSearch')?.value ||
       ''
     ).toLowerCase();
 
 
   const scope =
-    $('caseScope')
-      .value;
+    $('caseScope')?.value ||
+    'all';
 
 
   let list =
     cases.filter(
       c =>
-        scope === 'all' ||
+        scope ===
+          'all' ||
         c.visibility ===
           scope
     );
@@ -5524,9 +6547,7 @@ function renderCases() {
   list =
     list.filter(
       c =>
-        (
-          `${c.problem} ${c.category} ${c.solution} ${c.lesson} ${c.tags}`
-        )
+        `${c.problem || ''} ${c.category || ''} ${c.solution || ''} ${c.lesson || ''} ${c.tags || ''}`
           .toLowerCase()
           .includes(
             query
@@ -5558,7 +6579,7 @@ function renderCases() {
 
                     ${
                       c.visibility ===
-                      'company'
+                        'company'
                         ? '🏢 Company'
                         : '🔒 Personal'
                     }
@@ -5586,7 +6607,7 @@ function renderCases() {
                 <span
                   class="badge ${
                     c.visibility ===
-                    'company'
+                      'company'
                       ? 'good'
                       : 'warn'
                   }"
@@ -5644,7 +6665,11 @@ function renderCases() {
         )
         .join('') ||
 
-      '<div class="card muted">No matching cases.</div>';
+      `
+        <div class="card muted">
+          No matching cases.
+        </div>
+      `;
 }
 
 
@@ -5691,12 +6716,14 @@ function renderLearning() {
 
               </div>
 
+
               <p>
                 📘
                 ${esc(
                   l.note
                 )}
               </p>
+
 
               <p>
                 ${
@@ -5714,7 +6741,11 @@ function renderLearning() {
         )
         .join('') ||
 
-      '<div class="card muted">No learning notes yet.</div>';
+      `
+        <div class="card muted">
+          No learning notes yet.
+        </div>
+      `;
 }
 
 
@@ -5728,10 +6759,13 @@ function renderTeam() {
     .innerHTML =
       activeMembers()
         .map(
-          m => {
+          member => {
 
             const online =
-              isOnline(m);
+              isOnline(
+                member
+              );
+
 
             return `
               <article class="card member-card">
@@ -5750,7 +6784,7 @@ function renderTeam() {
 
                     <h3>
                       ${esc(
-                        m.profiles
+                        member.profiles
                           ?.display_name ||
                         'Member'
                       )}
@@ -5758,7 +6792,7 @@ function renderTeam() {
 
                     <div class="meta">
                       ${roleLabel(
-                        m.role
+                        member.role
                       )}
                     </div>
 
@@ -5766,16 +6800,14 @@ function renderTeam() {
 
 
                   <div class="avatar">
-
                     ${esc(
                       (
-                        m.profiles
+                        member.profiles
                           ?.display_name ||
                         'M'
                       )[0]
                         .toUpperCase()
                     )}
-
                   </div>
 
                 </div>
@@ -5790,7 +6822,7 @@ function renderTeam() {
                     </small>
 
                     <strong>
-                      ${m.profiles?.xp || 0}
+                      ${member.profiles?.xp || 0}
                     </strong>
 
                   </div>
@@ -5804,7 +6836,7 @@ function renderTeam() {
 
                     <strong>
                       ${
-                        m.profiles
+                        member.profiles
                           ?.shift_active
                           ? '🟢 Live'
                           : '⚪ Off'
@@ -5822,7 +6854,7 @@ function renderTeam() {
 
                     <strong>
                       ${relativeTime(
-                        m.profiles
+                        member.profiles
                           ?.last_seen
                       )}
                     </strong>
@@ -5833,9 +6865,9 @@ function renderTeam() {
 
 
                 ${
-                  myMembership.role ===
+                  myMembership?.role ===
                     'admin' &&
-                  m.user_id !==
+                  member.user_id !==
                     user.id
                     ? `
                       <label style="margin-top:12px">
@@ -5844,7 +6876,7 @@ function renderTeam() {
 
                         <select
                           class="role-select"
-                          data-user="${m.user_id}"
+                          data-user="${member.user_id}"
                         >
 
                           <option value="dispatcher">
@@ -5872,7 +6904,11 @@ function renderTeam() {
         )
         .join('') ||
 
-      '<div class="card muted">No active team members.</div>';
+      `
+        <div class="card muted">
+          No active team members.
+        </div>
+      `;
 
 
   document
@@ -5954,13 +6990,15 @@ function renderTeam() {
 
 
             toast(
-              'Role updated'
+              '✅ Role updated'
             );
           }
         );
       }
     );
 }
+
+
 /* ============================================================
    ACTIVITY
 ============================================================ */
@@ -5974,11 +7012,14 @@ function renderActivity() {
 
           const icon =
             a.entity_type ===
-            'load'
+              'load'
               ? '📦'
               : a.entity_type ===
                 'truck'
               ? '🚚'
+              : a.entity_type ===
+                'carrier'
+              ? '🏢'
               : a.entity_type ===
                 'issue'
               ? '🚨'
@@ -6040,7 +7081,11 @@ function renderActivity() {
       )
       .join('') ||
 
-    '<div class="card muted">No activity yet.</div>';
+    `
+      <div class="card muted">
+        No activity yet.
+      </div>
+    `;
 
 
   $('activityList')
@@ -6097,13 +7142,17 @@ function renderActivity() {
           )
           .join('') ||
 
-        '<div class="card muted">No activity yet.</div>';
+        `
+          <div class="card muted">
+            No activity yet.
+          </div>
+        `;
   }
 }
 
 
 /* ============================================================
-   ADMIN
+   ADMIN CENTER
 ============================================================ */
 
 function renderAdmin() {
@@ -6112,7 +7161,6 @@ function renderAdmin() {
     myMembership?.role !==
       'admin'
   ) {
-
     return;
   }
 
@@ -6137,7 +7185,8 @@ function renderAdmin() {
       ) =>
         sum +
         Number(
-          l.rate || 0
+          l.rate ||
+          0
         ),
       0
     );
@@ -6148,7 +7197,7 @@ function renderAdmin() {
       i =>
         !i.solved &&
         i.priority ===
-        'Critical'
+          'Critical'
     ).length;
 
 
@@ -6160,9 +7209,9 @@ function renderAdmin() {
 
   const workingCount =
     active.filter(
-      m =>
-        isOnline(m) &&
-        m.profiles
+      member =>
+        isOnline(member) &&
+        member.profiles
           ?.shift_active
     ).length;
 
@@ -6192,7 +7241,6 @@ function renderAdmin() {
   if (
     $('adminOnline')
   ) {
-
     $('adminOnline')
       .textContent =
         onlineCount;
@@ -6202,7 +7250,6 @@ function renderAdmin() {
   if (
     $('adminWorking')
   ) {
-
     $('adminWorking')
       .textContent =
         workingCount;
@@ -6212,14 +7259,16 @@ function renderAdmin() {
   const liveCards =
     active
       .map(
-        m => {
+        member => {
 
           const uid =
-            m.user_id;
+            member.user_id;
 
 
           const online =
-            isOnline(m);
+            isOnline(
+              member
+            );
 
 
           const booked =
@@ -6269,7 +7318,8 @@ function renderAdmin() {
               ) =>
                 sum +
                 Number(
-                  l.rate || 0
+                  l.rate ||
+                  0
                 ),
               0
             );
@@ -6300,7 +7350,7 @@ function renderAdmin() {
 
                   <h3>
                     ${esc(
-                      m.profiles
+                      member.profiles
                         ?.display_name ||
                       'Member'
                     )}
@@ -6309,13 +7359,13 @@ function renderAdmin() {
                   <div class="meta">
 
                     ${roleLabel(
-                      m.role
+                      member.role
                     )}
 
                     ·
 
                     ${
-                      m.profiles
+                      member.profiles
                         ?.shift_active
                         ? '🚦 Shift ON'
                         : 'Shift OFF'
@@ -6329,7 +7379,7 @@ function renderAdmin() {
                 <div class="avatar">
                   ${esc(
                     (
-                      m.profiles
+                      member.profiles
                         ?.display_name ||
                       'M'
                     )[0]
@@ -6343,52 +7393,41 @@ function renderAdmin() {
               <div class="metric-row">
 
                 <div class="metric">
-
                   <small>
                     📦 Loads booked
                   </small>
-
                   <strong>
                     ${booked.length}
                   </strong>
-
                 </div>
 
 
                 <div class="metric">
-
                   <small>
                     💵 Booked gross
                   </small>
-
                   <strong>
                     ${money(
                       bookedGross
                     )}
                   </strong>
-
                 </div>
 
 
                 <div class="metric">
-
                   <small>
                     🎯 Tasks
                   </small>
-
                   <strong>
                     ${completed}/${memberTasks.length}
                   </strong>
-
                 </div>
 
 
                 <div class="metric">
-
                   <small>
                     🚨 Open issues
                   </small>
-
                   <strong>
                     ${
                       memberIssues.filter(
@@ -6397,23 +7436,19 @@ function renderAdmin() {
                       ).length
                     }
                   </strong>
-
                 </div>
 
 
                 <div class="metric">
-
                   <small>
                     🕒 Last seen
                   </small>
-
                   <strong>
                     ${relativeTime(
-                      m.profiles
+                      member.profiles
                         ?.last_seen
                     )}
                   </strong>
-
                 </div>
 
               </div>
@@ -6453,10 +7488,8 @@ function renderAdmin() {
                 Assigned loads:
                 ${assigned.length}
 
-                ·
-
-                XP:
-                ${m.profiles?.xp || 0}
+                · XP:
+                ${member.profiles?.xp || 0}
 
               </div>
 
@@ -6475,17 +7508,25 @@ function renderAdmin() {
       .innerHTML =
         liveCards ||
 
-        '<div class="card muted">No active team members.</div>';
+        `
+          <div class="card muted">
+            No active team members.
+          </div>
+        `;
   }
 
+
+  /*
+   * DISPATCHER SCOREBOARD
+   */
 
   const rows =
     active
       .map(
-        m => {
+        member => {
 
           const uid =
-            m.user_id;
+            member.user_id;
 
 
           const booked =
@@ -6528,7 +7569,8 @@ function renderAdmin() {
               ) =>
                 sum +
                 Number(
-                  l.rate || 0
+                  l.rate ||
+                  0
                 ),
               0
             );
@@ -6564,7 +7606,7 @@ function renderAdmin() {
 
                 <b>
                   ${esc(
-                    m.profiles
+                    member.profiles
                       ?.display_name ||
                     'Member'
                   )}
@@ -6574,7 +7616,7 @@ function renderAdmin() {
 
                 <span class="meta">
                   ${roleLabel(
-                    m.role
+                    member.role
                   )}
                 </span>
 
@@ -6584,7 +7626,7 @@ function renderAdmin() {
               <td>
 
                 ${
-                  isOnline(m)
+                  isOnline(member)
                     ? '🟢 Online'
                     : '⚪ Offline'
                 }
@@ -6592,12 +7634,10 @@ function renderAdmin() {
                 <br>
 
                 <span class="meta">
-
                   ${relativeTime(
-                    m.profiles
+                    member.profiles
                       ?.last_seen
                   )}
-
                 </span>
 
               </td>
@@ -6621,7 +7661,6 @@ function renderAdmin() {
 
 
               <td>
-
                 ${
                   miles
                     ? '$' +
@@ -6631,46 +7670,39 @@ function renderAdmin() {
                       ).toFixed(2)
                     : '$0.00'
                 }
-
               </td>
 
 
               <td>
-
                 ${
                   memberIssues.filter(
                     i =>
                       !i.solved
                   ).length
                 }
-
               </td>
 
 
               <td>
-
                 ${
                   memberTasks.filter(
                     t =>
                       t.done
                   ).length
                 }
-
                 /
-
                 ${memberTasks.length}
-
               </td>
 
 
               <td>
-                ${m.profiles?.xp || 0}
+                ${member.profiles?.xp || 0}
               </td>
 
 
               <td>
                 ${
-                  m.profiles
+                  member.profiles
                     ?.shift_active
                     ? '🟢 ON'
                     : '⚪ OFF'
@@ -6701,31 +7733,54 @@ function renderAdmin() {
 
           <tr>
 
-            <th>Member</th>
+            <th>
+              Member
+            </th>
 
-            <th>Status</th>
+            <th>
+              Status
+            </th>
 
-            <th>Booked</th>
+            <th>
+              Booked
+            </th>
 
-            <th>Assigned Loads</th>
+            <th>
+              Assigned Loads
+            </th>
 
-            <th>Gross</th>
+            <th>
+              Gross
+            </th>
 
-            <th>RPM</th>
+            <th>
+              RPM
+            </th>
 
-            <th>Open Issues</th>
+            <th>
+              Open Issues
+            </th>
 
-            <th>Tasks</th>
+            <th>
+              Tasks
+            </th>
 
-            <th>XP</th>
+            <th>
+              XP
+            </th>
 
-            <th>Shift</th>
+            <th>
+              Shift
+            </th>
 
-            <th>Last Action</th>
+            <th>
+              Last Action
+            </th>
 
           </tr>
 
         </thead>
+
 
         <tbody>
           ${rows}
@@ -6733,6 +7788,243 @@ function renderAdmin() {
 
       </table>
     `;
+
+
+  /*
+   * CARRIER PERFORMANCE
+   *
+   * This is inserted underneath the
+   * dispatcher scoreboard automatically.
+   */
+
+  let carrierPerformance =
+    $('adminCarrierPerformance');
+
+
+  if (
+    !carrierPerformance &&
+    $('adminScoreboard')
+  ) {
+
+    carrierPerformance =
+      document.createElement(
+        'div'
+      );
+
+
+    carrierPerformance.id =
+      'adminCarrierPerformance';
+
+
+    carrierPerformance.style.marginTop =
+      '20px';
+
+
+    $('adminScoreboard')
+      .after(
+        carrierPerformance
+      );
+  }
+
+
+  if (
+    carrierPerformance
+  ) {
+
+    const carrierRows =
+      carriers
+        .map(
+          carrier => {
+
+            const carrierTruckList =
+              carrierTrucks(
+                carrier.id
+              );
+
+
+            const carrierLoadList =
+              carrierLoads(
+                carrier.id
+              );
+
+
+            const activeLoads =
+              carrierLoadList.filter(
+                l =>
+                  ![
+                    'Delivered',
+                    'Cancelled'
+                  ].includes(
+                    l.status
+                  )
+              );
+
+
+            const deliveredLoads =
+              carrierLoadList.filter(
+                l =>
+                  l.status ===
+                  'Delivered'
+              );
+
+
+            const gross =
+              carrierLoadList.reduce(
+                (
+                  sum,
+                  l
+                ) =>
+                  sum +
+                  Number(
+                    l.rate ||
+                    0
+                  ),
+                0
+              );
+
+
+            const loadedMiles =
+              carrierLoadList.reduce(
+                (
+                  sum,
+                  l
+                ) =>
+                  sum +
+                  Number(
+                    l.loaded_miles ||
+                    0
+                  ),
+                0
+              );
+
+
+            return `
+              <tr>
+
+                <td>
+                  <b>
+                    🏢
+                    ${esc(
+                      carrier.company_name
+                    )}
+                  </b>
+                </td>
+
+                <td>
+                  ${carrierTruckList.length}
+                </td>
+
+                <td>
+                  ${activeLoads.length}
+                </td>
+
+                <td>
+                  ${deliveredLoads.length}
+                </td>
+
+                <td>
+                  ${carrierLoadList.length}
+                </td>
+
+                <td>
+                  ${money(
+                    gross
+                  )}
+                </td>
+
+                <td>
+                  ${
+                    loadedMiles
+                      ? '$' +
+                        (
+                          gross /
+                          loadedMiles
+                        ).toFixed(2)
+                      : '$0.00'
+                  }
+                </td>
+
+                <td>
+                  ${statusBadge(
+                    carrier.status
+                  )}
+                </td>
+
+              </tr>
+            `;
+          }
+        )
+        .join('');
+
+
+    carrierPerformance.innerHTML = `
+
+      <div class="card">
+
+        <div class="card-head">
+
+          <div>
+
+            <p class="eyebrow">
+              🏢 CARRIER PERFORMANCE
+            </p>
+
+            <h2>
+              Performance by client company
+            </h2>
+
+            <p class="muted">
+              Compare trucks, loads, gross and RPM
+              across the companies you dispatch for.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="table-wrap">
+
+          <table class="data-table">
+
+            <thead>
+
+              <tr>
+                <th>Carrier</th>
+                <th>Trucks</th>
+                <th>Active Loads</th>
+                <th>Delivered</th>
+                <th>Total Loads</th>
+                <th>Gross</th>
+                <th>RPM</th>
+                <th>Status</th>
+              </tr>
+
+            </thead>
+
+
+            <tbody>
+
+              ${
+                carrierRows ||
+                `
+                  <tr>
+                    <td colspan="8">
+                      No carriers yet.
+                    </td>
+                  </tr>
+                `
+              }
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+    `;
+  }
 }
 
 
