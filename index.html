@@ -876,129 +876,208 @@
         >
 
           <form
-            id="truckForm"
-            class="form-grid four"
-          >
+  id="truckForm"
+  class="form-grid four"
+>
 
-            <label>
-              Carrier / Client Company
+  <label>
+    Carrier / Client Company
 
-              <select
-                id="truckCarrier"
-                required
-              >
-                <option value="">
-                  Choose carrier
-                </option>
-              </select>
-
-            </label>
-
-
-            <label>
-              Truck #
-
-              <input
-                id="truckNo"
-                required
-                maxlength="20"
-              >
-            </label>
+    <select
+      id="truckCarrier"
+      required
+    >
+      <option value="">
+        Choose carrier
+      </option>
+    </select>
+  </label>
 
 
-            <label>
-              Driver
+  <label>
+    Truck #
 
-              <input
-                id="truckDriver"
-                required
-                maxlength="70"
-              >
-            </label>
-
-
-            <label>
-              Equipment
-
-              <select id="truckEquipment">
-
-                <option>Dry Van</option>
-                <option>Reefer</option>
-                <option>Flatbed</option>
-                <option>Stepdeck</option>
-                <option>Conestoga</option>
-                <option>Power Only</option>
-                <option>Box Truck</option>
-
-              </select>
-
-            </label>
+    <input
+      id="truckNo"
+      required
+      maxlength="20"
+      placeholder="101"
+    >
+  </label>
 
 
-            <label>
-              Driver type
+  <label>
+    Trailer #
 
-              <select id="driverType">
-                <option>Solo</option>
-                <option>Team</option>
-              </select>
-
-            </label>
-
-
-            <label>
-              Current location
-
-              <input
-                id="truckLocation"
-                maxlength="100"
-              >
-            </label>
+    <input
+      id="truckTrailer"
+      maxlength="30"
+      placeholder="792030"
+    >
+  </label>
 
 
-            <label>
-              Status
+  <label>
+    Equipment
 
-              <select id="truckStatus">
+    <select id="truckEquipment">
+      <option>Dry Van</option>
+      <option>Reefer</option>
+      <option>Flatbed</option>
+      <option>Stepdeck</option>
+      <option>Conestoga</option>
+      <option>Power Only</option>
+      <option>Box Truck</option>
+    </select>
 
-                <option>Available</option>
-                <option>Covered</option>
-                <option>In Transit</option>
-                <option>At Pickup</option>
-                <option>At Delivery</option>
-                <option>Home Time</option>
-                <option>Breakdown</option>
-
-              </select>
-
-            </label>
+  </label>
 
 
-            <label>
-              Assign dispatcher
+  <label>
+    Driver Name
 
-              <select id="truckAssigned"></select>
-            </label>
-
-
-            <label>
-              Daily target $
-
-              <input
-                id="truckTarget"
-                type="number"
-                min="0"
-                step="50"
-                value="1500"
-              >
-            </label>
+    <input
+      id="truckDriver"
+      required
+      maxlength="70"
+      placeholder="John Smith"
+    >
+  </label>
 
 
-            <button class="btn primary wide">
-              💾 Save Truck
-            </button>
+  <label>
+    Driver Phone
 
-          </form>
+    <input
+      id="truckDriverPhone"
+      maxlength="40"
+      placeholder="+1 555 555 5555"
+    >
+  </label>
+
+
+  <label>
+    Driver Email
+
+    <input
+      id="truckDriverEmail"
+      type="email"
+      maxlength="120"
+      placeholder="driver@email.com"
+    >
+  </label>
+
+
+  <label>
+    Driver Type
+
+    <select id="driverType">
+      <option>Solo</option>
+      <option>Team</option>
+    </select>
+  </label>
+
+
+  <label>
+    Driver Home Location
+
+    <input
+      id="truckHomeLocation"
+      maxlength="120"
+      placeholder="Dallas, TX"
+    >
+  </label>
+
+
+  <label>
+    Current Location
+
+    <input
+      id="truckLocation"
+      maxlength="120"
+      placeholder="Houston, TX"
+    >
+  </label>
+
+
+  <label>
+    Available Date / Time
+
+    <input
+      id="truckAvailableAt"
+      type="datetime-local"
+    >
+  </label>
+
+
+  <label>
+    Next Available Location
+
+    <input
+      id="truckNextLocation"
+      maxlength="120"
+      placeholder="Atlanta, GA"
+    >
+  </label>
+
+
+  <label>
+    Truck Status
+
+    <select id="truckStatus">
+      <option>Available</option>
+      <option>Covered</option>
+      <option>At Pickup</option>
+      <option>In Transit</option>
+      <option>At Delivery</option>
+      <option>Home Time</option>
+      <option>Breakdown</option>
+      <option>Maintenance</option>
+    </select>
+
+  </label>
+
+
+  <label>
+    Assigned Dispatcher
+
+    <select id="truckAssigned"></select>
+  </label>
+
+
+  <label>
+    Daily Target $
+
+    <input
+      id="truckTarget"
+      type="number"
+      min="0"
+      step="50"
+      value="1500"
+    >
+  </label>
+
+
+  <label class="span-3">
+    Driver / Truck Notes
+
+    <textarea
+      id="truckDriverNotes"
+      rows="3"
+      maxlength="1000"
+      placeholder="Driver preferences, home-time request, preferred lanes, restrictions, truck notes..."
+    ></textarea>
+  </label>
+
+
+  <button
+    class="btn primary wide"
+    type="submit"
+  >
+    💾 Save Truck
+  </button>
+
+</form>
 
         </article>
 
