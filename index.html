@@ -368,6 +368,14 @@
 
         <button
           class="nav-btn"
+          data-panel="carriers"
+        >
+          🏢
+          <span>Carriers</span>
+        </button>
+
+        <button
+          class="nav-btn"
           data-panel="loads"
         >
           📦
@@ -727,7 +735,9 @@
               </span>
 
             </div>
-                        <form
+
+
+            <form
               id="quickTaskForm"
               class="inline-form"
             >
@@ -871,6 +881,21 @@
           >
 
             <label>
+              Carrier / Client Company
+
+              <select
+                id="truckCarrier"
+                required
+              >
+                <option value="">
+                  Choose carrier
+                </option>
+              </select>
+
+            </label>
+
+
+            <label>
               Truck #
 
               <input
@@ -980,6 +1005,179 @@
 
         <div
           id="fleetGrid"
+          class="cards-grid"
+        ></div>
+
+      </section>
+
+
+
+      <!-- ======================================================
+           CARRIERS / CLIENT COMPANIES
+      ======================================================= -->
+
+      <section
+        id="carriers"
+        class="panel"
+      >
+
+        <div class="section-head">
+
+          <div>
+
+            <p class="eyebrow">
+              🏢 CLIENT COMPANIES
+            </p>
+
+            <h2>
+              Carriers & owner operators
+            </h2>
+
+            <p class="muted">
+              Keep trucks, drivers and loads separated
+              by the company you dispatch for.
+            </p>
+
+          </div>
+
+
+          <button
+            class="btn primary admin-dispatcher"
+            data-toggle="carrierFormCard"
+            type="button"
+          >
+            ＋ Add Carrier
+          </button>
+
+        </div>
+
+
+        <article
+          id="carrierFormCard"
+          class="card form-card hidden"
+        >
+
+          <form
+            id="carrierForm"
+            class="form-grid three"
+          >
+
+            <label>
+              Company name
+
+              <input
+                id="carrierName"
+                required
+                maxlength="120"
+                placeholder="ABC Transport LLC"
+              >
+            </label>
+
+
+            <label>
+              MC Number
+
+              <input
+                id="carrierMC"
+                maxlength="40"
+                placeholder="MC123456"
+              >
+            </label>
+
+
+            <label>
+              DOT Number
+
+              <input
+                id="carrierDOT"
+                maxlength="40"
+                placeholder="1234567"
+              >
+            </label>
+
+
+            <label>
+              Contact person
+
+              <input
+                id="carrierContact"
+                maxlength="100"
+                placeholder="John Smith"
+              >
+            </label>
+
+
+            <label>
+              Phone
+
+              <input
+                id="carrierPhone"
+                maxlength="40"
+                placeholder="+1 555 555 5555"
+              >
+            </label>
+
+
+            <label>
+              Email
+
+              <input
+                id="carrierEmail"
+                type="email"
+                maxlength="120"
+                placeholder="dispatch@carrier.com"
+              >
+            </label>
+
+
+            <label>
+              Status
+
+              <select id="carrierStatus">
+                <option value="active">
+                  🟢 Active
+                </option>
+                <option value="inactive">
+                  ⚪ Inactive
+                </option>
+              </select>
+            </label>
+
+
+            <label class="span-2">
+              Address
+
+              <input
+                id="carrierAddress"
+                maxlength="220"
+                placeholder="Company address"
+              >
+            </label>
+
+
+            <label class="span-3">
+              Notes
+
+              <textarea
+                id="carrierNotes"
+                rows="3"
+                maxlength="800"
+                placeholder="Preferred lanes, dispatcher notes, payment terms, special requirements..."
+              ></textarea>
+            </label>
+
+
+            <button class="btn primary wide">
+              💾 Save Carrier
+            </button>
+
+          </form>
+
+        </article>
+
+
+        <div
+          id="carrierGrid"
           class="cards-grid"
         ></div>
 
@@ -1212,6 +1410,7 @@
                 </option>
 
               </select>
+
             </label>
 
 
@@ -1271,7 +1470,8 @@
             <h2>
               Problems that cannot be forgotten
             </h2>
-                      </div>
+
+          </div>
 
 
           <button
