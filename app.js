@@ -21,6 +21,9 @@ let currentPanel = 'dashboard';
 let carrierFilter = 'all';
 let editingLoadId = null;
 let editingTruckId = null;
+let editingCarrierId = null;
+let editingIssueId = null;
+let editingTaskId = null;
 
 let heartbeatTimer = null;
 let adminRefreshTimer = null;
@@ -855,6 +858,9 @@ function showApp() {
 
   ensureLoadCancelButton();
   ensureTruckCancelButton();
+  ensureCarrierCancelButton();
+  ensureIssueCancelButton();
+  ensureTaskCancelButton();
   renderShift();
   ensureCarrierFilter();
 }
@@ -1514,72 +1520,46 @@ function carrierName(carrierId) {
 
 
 function filteredTrucks() {
+  const active = trucks.filter(t => !t.archived);
 
-  if (
-    carrierFilter ===
-    'all'
-  ) {
-    return trucks;
+  if (carrierFilter === 'all') {
+    return active;
   }
 
-
-  return trucks.filter(
+  return active.filter(
     t =>
-      String(
-        t.carrier_id ||
-        ''
-      ) ===
-      String(
-        carrierFilter
-      )
+      String(t.carrier_id || '') ===
+      String(carrierFilter)
   );
 }
 
 
 function filteredLoads() {
+  const active = loads.filter(l => !l.archived);
 
-  if (
-    carrierFilter ===
-    'all'
-  ) {
-    return loads;
+  if (carrierFilter === 'all') {
+    return active;
   }
 
-
-  return loads.filter(
+  return active.filter(
     l =>
-      String(
-        l.trucks
-          ?.carrier_id ||
-        ''
-      ) ===
-      String(
-        carrierFilter
-      )
+      String(l.trucks?.carrier_id || '') ===
+      String(carrierFilter)
   );
 }
 
 
 function filteredIssues() {
+  const active = issues.filter(i => !i.archived);
 
-  if (
-    carrierFilter ===
-    'all'
-  ) {
-    return issues;
+  if (carrierFilter === 'all') {
+    return active;
   }
 
-
-  return issues.filter(
+  return active.filter(
     i =>
-      String(
-        i.trucks
-          ?.carrier_id ||
-        ''
-      ) ===
-      String(
-        carrierFilter
-      )
+      String(i.trucks?.carrier_id || '') ===
+      String(carrierFilter)
   );
 }
 
@@ -2331,20 +2311,118 @@ function renderShift() {
 
 
 /* ============================================================
-   CARRIER FORM
+   CARRIER FORM + EDITING
 ============================================================ */
+
+function carrierSubmitButton() {
+  return $('carrierForm')?.querySelector(
+    'button[type="submit"], button:not([type])'
+  );
+}
+
+
+function ensureCarrierCancelButton() {
+  const form = $('carrierForm');
+
+  if (!form || $('cancelCarrierEdit')) return;
+
+  const button = document.createElement('button');
+
+  button.id = 'cancelCarrierEdit';
+  button.type = 'button';
+  button.className = 'btn ghost wide hidden';
+  button.textContent = '✖ Cancel Edit';
+
+  button.addEventListener('click', () => {
+    resetCarrierFormMode(true);
+    toast('Edit cancelled');
+  });
+
+  form.appendChild(button);
+}
+
+
+function resetCarrierFormMode(closeCard = false) {
+  editingCarrierId = null;
+
+  $('carrierForm')?.reset();
+
+  if ($('carrierStatus')) {
+    $('carrierStatus').value = 'active';
+  }
+
+  const submit = carrierSubmitButton();
+
+  if (submit) {
+    submit.textContent = '💾 Save Carrier';
+  }
+
+  $('cancelCarrierEdit')?.classList.add('hidden');
+
+  if (closeCard) {
+    $('carrierFormCard')?.classList.add('hidden');
+  }
+}
+
+
+function beginCarrierEdit(carrierId) {
+  const carrier = carriers.find(
+    c => String(c.id) === String(carrierId)
+  );
+
+  if (!carrier) {
+    toast('❌ Carrier not found');
+    return;
+  }
+
+  if (!['admin', 'dispatcher'].includes(myMembership?.role)) {
+    toast('❌ You cannot edit carriers');
+    return;
+  }
+
+  editingCarrierId = carrier.id;
+  ensureCarrierCancelButton();
+
+  $('carrierName').value = carrier.company_name || '';
+  $('carrierMC').value = carrier.mc_number || '';
+  $('carrierDOT').value = carrier.dot_number || '';
+  $('carrierContact').value = carrier.contact_name || '';
+  $('carrierPhone').value = carrier.phone || '';
+  $('carrierEmail').value = carrier.email || '';
+  $('carrierAddress').value = carrier.address || '';
+  $('carrierNotes').value = carrier.notes || '';
+  $('carrierStatus').value = carrier.status || 'active';
+
+  const submit = carrierSubmitButton();
+
+  if (submit) {
+    submit.textContent = '✅ Update Carrier';
+  }
+
+  $('cancelCarrierEdit')?.classList.remove('hidden');
+  $('carrierFormCard')?.classList.remove('hidden');
+
+  showPanel('carriers');
+
+  $('carrierFormCard')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  });
+
+  toast('✏️ Editing carrier');
+}
+
 
 if ($('carrierForm')) {
   $('carrierForm').addEventListener('submit', async e => {
     e.preventDefault();
 
     if (!['admin', 'dispatcher'].includes(myMembership?.role)) {
-      toast('❌ You cannot add carriers');
+      toast('❌ You cannot edit carriers');
       return;
     }
 
     const payload = {
-      org_id: org.id,
       company_name: $('carrierName').value.trim(),
       mc_number: $('carrierMC').value.trim() || null,
       dot_number: $('carrierDOT').value.trim() || null,
@@ -2353,8 +2431,7 @@ if ($('carrierForm')) {
       email: $('carrierEmail').value.trim() || null,
       address: $('carrierAddress').value.trim() || null,
       notes: $('carrierNotes').value.trim() || null,
-      status: $('carrierStatus').value,
-      created_by: user.id
+      status: $('carrierStatus').value
     };
 
     if (!payload.company_name) {
@@ -2362,11 +2439,40 @@ if ($('carrierForm')) {
       return;
     }
 
-    const { data, error } = await sb
-      .from('carriers')
-      .insert(payload)
-      .select()
-      .single();
+    const wasEditing = Boolean(editingCarrierId);
+
+    let data;
+    let error;
+
+    if (wasEditing) {
+      const result = await sb
+        .from('carriers')
+        .update({
+          ...payload,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingCarrierId)
+        .eq('org_id', org.id)
+        .select()
+        .single();
+
+      data = result.data;
+      error = result.error;
+
+    } else {
+      const result = await sb
+        .from('carriers')
+        .insert({
+          org_id: org.id,
+          ...payload,
+          created_by: user.id
+        })
+        .select()
+        .single();
+
+      data = result.data;
+      error = result.error;
+    }
 
     if (error) {
       toast('❌ ' + error.message);
@@ -2374,19 +2480,21 @@ if ($('carrierForm')) {
     }
 
     await logAction(
-      'Added carrier',
+      wasEditing ? 'Edited carrier' : 'Added carrier',
       'carrier',
       data.id,
       payload.company_name
     );
 
-    e.target.reset();
-
-    $('carrierFormCard')?.classList.add('hidden');
+    resetCarrierFormMode(true);
 
     await loadWorkspaceData();
 
-    toast('🏢 Carrier added');
+    toast(
+      wasEditing
+        ? '✅ Carrier updated'
+        : '🏢 Carrier added'
+    );
   });
 }
 
@@ -2947,6 +3055,219 @@ function beginLoadEdit(loadId) {
 }
 
 
+async function recordLoadChanges(
+  oldLoad,
+  newValues
+) {
+  if (!oldLoad || !org || !user) return;
+
+  const fields = {
+    truck_id: 'Truck',
+    broker: 'Broker',
+    rate: 'Company Rate',
+    driver_rate: 'Driver Rate',
+    source: 'Source',
+    origin: 'Origin',
+    destination: 'Destination',
+    loaded_miles: 'Loaded Miles',
+    deadhead_miles: 'Deadhead Miles',
+    pickup_at: 'Pickup',
+    delivery_at: 'Delivery',
+    reference_no: 'Reference #',
+    assigned_to: 'Assigned Dispatcher',
+    status: 'Status',
+    notes: 'Notes'
+  };
+
+  const rows = [];
+
+  Object.entries(fields).forEach(
+    ([field, label]) => {
+      const oldValue =
+        oldLoad[field] ?? '';
+
+      const newValue =
+        newValues[field] ?? '';
+
+      const normalize = value => {
+        if (value === null || value === undefined) {
+          return '';
+        }
+
+        if (
+          field === 'pickup_at' ||
+          field === 'delivery_at'
+        ) {
+          const d = new Date(value);
+          return Number.isNaN(d.getTime())
+            ? String(value)
+            : d.toISOString();
+        }
+
+        return String(value);
+      };
+
+      if (
+        normalize(oldValue) !==
+        normalize(newValue)
+      ) {
+        rows.push({
+          org_id: org.id,
+          load_id: oldLoad.id,
+          changed_by: user.id,
+          field_name: label,
+          old_value: normalize(oldValue),
+          new_value: normalize(newValue)
+        });
+      }
+    }
+  );
+
+  if (!rows.length) return;
+
+  const { error } = await sb
+    .from('load_change_history')
+    .insert(rows);
+
+  if (error) {
+    console.error(
+      'Load history error:',
+      error
+    );
+  }
+}
+
+
+function ensureHistoryModal() {
+  let modal = $('loadHistoryModal');
+
+  if (modal) return modal;
+
+  modal = document.createElement('div');
+
+  modal.id = 'loadHistoryModal';
+  modal.className = 'hidden';
+
+  modal.style.cssText = `
+    position:fixed;
+    inset:0;
+    z-index:9999;
+    background:rgba(0,0,0,.65);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  `;
+
+  modal.innerHTML = `
+    <div
+      class="card"
+      style="
+        width:min(760px,96vw);
+        max-height:85vh;
+        overflow:auto;
+      "
+    >
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">🕘 LOAD HISTORY</p>
+          <h2 id="loadHistoryTitle">Changes</h2>
+        </div>
+
+        <button
+          id="closeLoadHistory"
+          class="btn ghost"
+          type="button"
+        >
+          ✖ Close
+        </button>
+      </div>
+
+      <div
+        id="loadHistoryBody"
+        class="stack"
+      ></div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  $('closeLoadHistory').addEventListener(
+    'click',
+    () => modal.classList.add('hidden')
+  );
+
+  modal.addEventListener('click', e => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+    }
+  });
+
+  return modal;
+}
+
+
+async function showLoadHistory(loadId) {
+  const load = loads.find(
+    l => String(l.id) === String(loadId)
+  );
+
+  const modal = ensureHistoryModal();
+
+  modal.classList.remove('hidden');
+
+  $('loadHistoryTitle').textContent =
+    load
+      ? `${load.origin} → ${load.destination}`
+      : 'Load Changes';
+
+  $('loadHistoryBody').innerHTML =
+    '<div class="muted">Loading history…</div>';
+
+  const { data, error } = await sb
+    .from('load_change_history')
+    .select('*')
+    .eq('load_id', loadId)
+    .eq('org_id', org.id)
+    .order('created_at', {
+      ascending: false
+    });
+
+  if (error) {
+    $('loadHistoryBody').innerHTML =
+      `<div class="notice">❌ ${esc(error.message)}</div>`;
+    return;
+  }
+
+  $('loadHistoryBody').innerHTML =
+    (data || [])
+      .map(
+        row => `
+          <article class="item">
+            <b>${esc(row.field_name)}</b>
+            <div class="meta">
+              ${fmt(row.created_at)}
+            </div>
+            <div style="margin-top:8px">
+              <span class="muted">Before:</span>
+              ${esc(row.old_value || '—')}
+            </div>
+            <div>
+              <span class="muted">After:</span>
+              ${esc(row.new_value || '—')}
+            </div>
+          </article>
+        `
+      )
+      .join('') ||
+    `
+      <div class="card muted">
+        No edits recorded yet.
+      </div>
+    `;
+}
+
+
 $('loadForm').addEventListener('submit', async e => {
   e.preventDefault();
 
@@ -3028,6 +3349,13 @@ $('loadForm').addEventListener('submit', async e => {
   const targetLoadId =
     editingLoadId;
 
+  const oldLoad =
+    wasEditing
+      ? loads.find(
+          l => String(l.id) === String(targetLoadId)
+        )
+      : null;
+
   let data;
   let error;
 
@@ -3068,6 +3396,11 @@ $('loadForm').addEventListener('submit', async e => {
 
   if (!wasEditing) {
     await gainXP(10);
+  } else {
+    await recordLoadChanges(
+      oldLoad,
+      editablePayload
+    );
   }
 
   await syncTruckFromLoadStatus(
@@ -3124,29 +3457,149 @@ $('loadForm').addEventListener('submit', async e => {
 
 
 /* ============================================================
-   ISSUE FORM
+   ISSUE FORM + EDITING
 ============================================================ */
+
+function issueSubmitButton() {
+  return $('issueForm')?.querySelector(
+    'button[type="submit"], button:not([type])'
+  );
+}
+
+
+function ensureIssueCancelButton() {
+  const form = $('issueForm');
+
+  if (!form || $('cancelIssueEdit')) return;
+
+  const button = document.createElement('button');
+
+  button.id = 'cancelIssueEdit';
+  button.type = 'button';
+  button.className = 'btn ghost wide hidden';
+  button.textContent = '✖ Cancel Edit';
+
+  button.addEventListener('click', () => {
+    resetIssueFormMode(true);
+    toast('Edit cancelled');
+  });
+
+  form.appendChild(button);
+}
+
+
+function resetIssueFormMode(closeCard = false) {
+  editingIssueId = null;
+
+  $('issueForm')?.reset();
+
+  const submit = issueSubmitButton();
+
+  if (submit) {
+    submit.textContent = '🚨 Open Issue';
+  }
+
+  $('cancelIssueEdit')?.classList.add('hidden');
+
+  if (closeCard) {
+    $('issueFormCard')?.classList.add('hidden');
+  }
+}
+
+
+function beginIssueEdit(issueId) {
+  const issue = issues.find(
+    i => String(i.id) === String(issueId)
+  );
+
+  if (!issue) {
+    toast('❌ Issue not found');
+    return;
+  }
+
+  if (!['admin', 'dispatcher'].includes(myMembership?.role)) {
+    toast('❌ You cannot edit issues');
+    return;
+  }
+
+  editingIssueId = issue.id;
+  ensureIssueCancelButton();
+
+  $('issueTitle').value = issue.title || '';
+  $('issueType').value = issue.issue_type || 'Other';
+  $('issuePriority').value = issue.priority || 'Medium';
+  $('issueTruck').value = issue.truck_id || '';
+  $('issueAssigned').value = issue.assigned_to || user.id;
+  $('issueNext').value = issue.next_action || '';
+  $('issueDetails').value = issue.details || '';
+
+  const submit = issueSubmitButton();
+
+  if (submit) {
+    submit.textContent = '✅ Update Issue';
+  }
+
+  $('cancelIssueEdit')?.classList.remove('hidden');
+  $('issueFormCard')?.classList.remove('hidden');
+
+  showPanel('issues');
+
+  $('issueFormCard')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  });
+
+  toast('✏️ Editing issue');
+}
+
 
 $('issueForm').addEventListener('submit', async e => {
   e.preventDefault();
 
   const payload = {
-    org_id: org.id,
     title: $('issueTitle').value.trim(),
     issue_type: $('issueType').value,
     priority: $('issuePriority').value,
     details: $('issueDetails').value.trim(),
     next_action: $('issueNext').value.trim(),
     truck_id: $('issueTruck').value || null,
-    assigned_to: $('issueAssigned').value || user.id,
-    created_by: user.id
+    assigned_to: $('issueAssigned').value || user.id
   };
 
-  const { data, error } = await sb
-    .from('issues')
-    .insert(payload)
-    .select()
-    .single();
+  const wasEditing = Boolean(editingIssueId);
+
+  let data;
+  let error;
+
+  if (wasEditing) {
+    const result = await sb
+      .from('issues')
+      .update({
+        ...payload,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', editingIssueId)
+      .eq('org_id', org.id)
+      .select()
+      .single();
+
+    data = result.data;
+    error = result.error;
+
+  } else {
+    const result = await sb
+      .from('issues')
+      .insert({
+        org_id: org.id,
+        ...payload,
+        created_by: user.id
+      })
+      .select()
+      .single();
+
+    data = result.data;
+    error = result.error;
+  }
 
   if (error) {
     toast('❌ ' + error.message);
@@ -3154,24 +3607,113 @@ $('issueForm').addEventListener('submit', async e => {
   }
 
   await logAction(
-    'Opened issue',
+    wasEditing ? 'Edited issue' : 'Opened issue',
     'issue',
     data.id,
     payload.title
   );
 
-  e.target.reset();
-  $('issueFormCard').classList.add('hidden');
+  resetIssueFormMode(true);
 
   await loadWorkspaceData();
 
-  toast('🚨 Issue opened');
+  toast(
+    wasEditing
+      ? '✅ Issue updated'
+      : '🚨 Issue opened'
+  );
 });
 
 
 /* ============================================================
-   TASK FORMS
+   TASK FORMS + EDITING
 ============================================================ */
+
+function taskSubmitButton() {
+  return $('taskForm')?.querySelector(
+    'button[type="submit"], button:not([type])'
+  );
+}
+
+
+function ensureTaskCancelButton() {
+  const form = $('taskForm');
+
+  if (!form || $('cancelTaskEdit')) return;
+
+  const button = document.createElement('button');
+
+  button.id = 'cancelTaskEdit';
+  button.type = 'button';
+  button.className = 'btn ghost wide hidden';
+  button.textContent = '✖ Cancel Edit';
+
+  button.addEventListener('click', () => {
+    resetTaskFormMode(true);
+    toast('Edit cancelled');
+  });
+
+  form.appendChild(button);
+}
+
+
+function resetTaskFormMode(closeCard = false) {
+  editingTaskId = null;
+
+  $('taskForm')?.reset();
+
+  const submit = taskSubmitButton();
+
+  if (submit) {
+    submit.textContent = '🎯 Add Task';
+  }
+
+  $('cancelTaskEdit')?.classList.add('hidden');
+
+  if (closeCard) {
+    $('taskFormCard')?.classList.add('hidden');
+  }
+}
+
+
+function beginTaskEdit(taskId) {
+  const task = tasks.find(
+    t => String(t.id) === String(taskId)
+  );
+
+  if (!task || task.user_id !== user.id) {
+    toast('❌ Task not found');
+    return;
+  }
+
+  editingTaskId = task.id;
+  ensureTaskCancelButton();
+
+  $('taskTitle').value = task.title || '';
+  $('taskCategory').value = task.category || 'Dispatch';
+  $('taskPriority').value = task.priority || 'Medium';
+  $('taskDue').value = task.due_date || '';
+  $('taskNotes').value = task.notes || '';
+
+  const submit = taskSubmitButton();
+
+  if (submit) {
+    submit.textContent = '✅ Update Task';
+  }
+
+  $('cancelTaskEdit')?.classList.remove('hidden');
+  $('taskFormCard')?.classList.remove('hidden');
+
+  showPanel('tasks');
+
+  $('taskFormCard')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  });
+
+  toast('✏️ Editing task');
+}
+
 
 async function addTask(
   title,
@@ -3196,7 +3738,7 @@ async function addTask(
 
   if (error) {
     toast('❌ ' + error.message);
-    return;
+    return false;
   }
 
   await logAction(
@@ -3207,6 +3749,7 @@ async function addTask(
   );
 
   await loadWorkspaceData();
+  return true;
 }
 
 
@@ -3218,26 +3761,82 @@ $('quickTaskForm').addEventListener('submit', async e => {
 
   if (!value) return;
 
-  await addTask(value);
+  const ok = await addTask(value);
 
-  $('quickTask').value = '';
+  if (ok) {
+    $('quickTask').value = '';
+  }
 });
 
 
 $('taskForm').addEventListener('submit', async e => {
   e.preventDefault();
 
-  await addTask(
-    $('taskTitle').value.trim(),
-    $('taskCategory').value,
-    $('taskPriority').value,
-    $('taskDue').value,
-    $('taskNotes').value.trim()
+  const payload = {
+    title: $('taskTitle').value.trim(),
+    category: $('taskCategory').value,
+    priority: $('taskPriority').value,
+    due_date: $('taskDue').value || null,
+    notes: $('taskNotes').value.trim()
+  };
+
+  const wasEditing = Boolean(editingTaskId);
+
+  let data;
+  let error;
+
+  if (wasEditing) {
+    const result = await sb
+      .from('tasks')
+      .update({
+        ...payload,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', editingTaskId)
+      .eq('user_id', user.id)
+      .eq('org_id', org.id)
+      .select()
+      .single();
+
+    data = result.data;
+    error = result.error;
+
+  } else {
+    const result = await sb
+      .from('tasks')
+      .insert({
+        org_id: org.id,
+        user_id: user.id,
+        ...payload
+      })
+      .select()
+      .single();
+
+    data = result.data;
+    error = result.error;
+  }
+
+  if (error) {
+    toast('❌ ' + error.message);
+    return;
+  }
+
+  await logAction(
+    wasEditing ? 'Edited task' : 'Added task',
+    'task',
+    data.id,
+    payload.title
   );
 
-  e.target.reset();
+  resetTaskFormMode(true);
 
-  $('taskFormCard').classList.add('hidden');
+  await loadWorkspaceData();
+
+  toast(
+    wasEditing
+      ? '✅ Task updated'
+      : '🎯 Task added'
+  );
 });
 
 
@@ -3417,7 +4016,8 @@ function renderDashboard() {
   const mine =
     tasks.filter(
       t =>
-        t.user_id === user.id
+        t.user_id === user.id &&
+        !t.archived
     );
 
   const assignedTrucks =
@@ -3667,6 +4267,7 @@ function renderCarriers() {
 
   grid.innerHTML =
     carriers
+      .filter(c => !c.archived)
       .map(c => {
         const carrierTruckList =
           carrierTrucks(c.id);
@@ -3835,6 +4436,14 @@ function renderCarriers() {
                 )
                   ? `
                     <button
+                      class="btn ghost carrier-edit"
+                      data-carrier="${c.id}"
+                      type="button"
+                    >
+                      ✏️ Edit Carrier
+                    </button>
+
+                    <button
                       class="btn ghost carrier-toggle-status"
                       data-carrier="${c.id}"
                       type="button"
@@ -3845,6 +4454,20 @@ function renderCarriers() {
                           : '🟢 Set Active'
                       }
                     </button>
+
+                    ${
+                      myMembership?.role === 'admin'
+                        ? `
+                          <button
+                            class="btn ghost carrier-archive"
+                            data-carrier="${c.id}"
+                            type="button"
+                          >
+                            🗃 Archive
+                          </button>
+                        `
+                        : ''
+                    }
                   `
                   : ''
               }
@@ -3884,6 +4507,73 @@ function renderCarriers() {
           )}`
         );
       });
+    });
+
+
+  document
+    .querySelectorAll('.carrier-edit')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () =>
+          beginCarrierEdit(
+            button.dataset.carrier
+          )
+      );
+    });
+
+
+  document
+    .querySelectorAll('.carrier-archive')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        async () => {
+          if (myMembership?.role !== 'admin') return;
+
+          const carrier = carriers.find(
+            c =>
+              String(c.id) ===
+              String(button.dataset.carrier)
+          );
+
+          if (!carrier) return;
+
+          if (!confirm(
+            `Archive ${carrier.company_name}? Historical loads and trucks will remain saved.`
+          )) return;
+
+          const { error } = await sb
+            .from('carriers')
+            .update({
+              archived: true,
+              archived_at: new Date().toISOString(),
+              archived_by: user.id,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', carrier.id)
+            .eq('org_id', org.id);
+
+          if (error) {
+            toast('❌ ' + error.message);
+            return;
+          }
+
+          await logAction(
+            'Archived carrier',
+            'carrier',
+            carrier.id,
+            carrier.company_name
+          );
+
+          if (String(carrierFilter) === String(carrier.id)) {
+            carrierFilter = 'all';
+          }
+
+          await loadWorkspaceData();
+          toast('🗃 Carrier archived');
+        }
+      );
     });
 
 
@@ -4101,6 +4791,20 @@ function renderFleet() {
                     >
                       🚨 Open Issue
                     </button>
+
+                    ${
+                      myMembership?.role === 'admin'
+                        ? `
+                          <button
+                            class="small-btn archive-truck-btn"
+                            data-id="${t.id}"
+                            type="button"
+                          >
+                            🗃 Archive
+                          </button>
+                        `
+                        : ''
+                    }
                   </div>
                 `
                 : ''
@@ -4139,6 +4843,56 @@ function renderFleet() {
           )
       );
     });
+
+  document
+    .querySelectorAll('.archive-truck-btn')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        async () => {
+          if (myMembership?.role !== 'admin') return;
+
+          const truck = trucks.find(
+            t =>
+              String(t.id) ===
+              String(button.dataset.id)
+          );
+
+          if (!truck) return;
+
+          if (!confirm(
+            `Archive Truck ${truck.truck_no}? Historical loads will remain saved.`
+          )) return;
+
+          const { error } = await sb
+            .from('trucks')
+            .update({
+              archived: true,
+              archived_at: new Date().toISOString(),
+              archived_by: user.id,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', truck.id)
+            .eq('org_id', org.id);
+
+          if (error) {
+            toast('❌ ' + error.message);
+            return;
+          }
+
+          await logAction(
+            'Archived truck',
+            'truck',
+            truck.id,
+            `Truck ${truck.truck_no}`
+          );
+
+          await loadWorkspaceData();
+          toast('🗃 Truck archived');
+        }
+      );
+    });
+
 
   document
     .querySelectorAll('.truck-issue-btn')
@@ -4722,8 +5476,10 @@ function loadTable(
           <th>Truck / Driver</th>
           <th>Lane</th>
           <th>Broker</th>
-          <th>Rate</th>
-          <th>RPM</th>
+          <th>Company Rate</th>
+          <th>Driver Rate</th>
+          <th>Margin</th>
+          <th>Company RPM</th>
           <th>All-in</th>
           <th>Dispatcher</th>
           <th>Documents</th>
@@ -4825,11 +5581,20 @@ function loadTable(
                         ${money(load.rate)}
                       </td>
 
+                      <td>
+                        ${money(load.driver_rate)}
+                      </td>
+
+                      <td>
+                        ${money(
+                          Number(load.rate || 0) -
+                          Number(load.driver_rate || 0)
+                        )}
+                      </td>
 
                       <td>
                         $${rpm(load)}
                       </td>
-
 
                       <td>
                         $${allIn(load)}
@@ -4904,6 +5669,36 @@ function loadTable(
                                     >
                                       ✏️ Edit Load
                                     </button>
+
+                                    <button
+                                      class="small-btn load-history-btn"
+                                      data-id="${load.id}"
+                                      type="button"
+                                      style="
+                                        margin-top:8px;
+                                        width:100%;
+                                      "
+                                    >
+                                      🕘 History
+                                    </button>
+
+                                    ${
+                                      myMembership?.role === 'admin'
+                                        ? `
+                                          <button
+                                            class="small-btn archive-load-btn"
+                                            data-id="${load.id}"
+                                            type="button"
+                                            style="
+                                              margin-top:8px;
+                                              width:100%;
+                                            "
+                                          >
+                                            🗃 Archive
+                                          </button>
+                                        `
+                                        : ''
+                                    }
                                   `
                                   : ''
                               }
@@ -4920,7 +5715,7 @@ function loadTable(
                       actions
                         ? `
                           <tr>
-                            <td colspan="11">
+                            <td colspan="13">
                               ${documentPanel(
                                 load
                               )}
@@ -4934,7 +5729,7 @@ function loadTable(
                 .join('')
             : `
               <tr>
-                <td colspan="11">
+                <td colspan="13">
                   No loads recorded.
                 </td>
               </tr>
@@ -4970,6 +5765,66 @@ function renderLoads() {
           beginLoadEdit(
             button.dataset.id
           )
+      );
+    });
+
+
+  document
+    .querySelectorAll('.load-history-btn')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () => showLoadHistory(button.dataset.id)
+      );
+    });
+
+
+  document
+    .querySelectorAll('.archive-load-btn')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        async () => {
+          if (myMembership?.role !== 'admin') return;
+
+          const load = loads.find(
+            l =>
+              String(l.id) ===
+              String(button.dataset.id)
+          );
+
+          if (!load) return;
+
+          if (!confirm(
+            `Archive load ${load.origin} → ${load.destination}?`
+          )) return;
+
+          const { error } = await sb
+            .from('loads')
+            .update({
+              archived: true,
+              archived_at: new Date().toISOString(),
+              archived_by: user.id,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', load.id)
+            .eq('org_id', org.id);
+
+          if (error) {
+            toast('❌ ' + error.message);
+            return;
+          }
+
+          await logAction(
+            'Archived load',
+            'load',
+            load.id,
+            `${load.origin} → ${load.destination}`
+          );
+
+          await loadWorkspaceData();
+          toast('🗃 Load archived');
+        }
       );
     });
 
@@ -5148,6 +6003,36 @@ function renderIssues() {
                 }
               </button>
 
+              ${
+                ['admin', 'dispatcher'].includes(
+                  myMembership?.role
+                )
+                  ? `
+                    <button
+                      class="small-btn issue-edit"
+                      data-id="${i.id}"
+                      type="button"
+                    >
+                      ✏️ Edit
+                    </button>
+                  `
+                  : ''
+              }
+
+              ${
+                myMembership?.role === 'admin'
+                  ? `
+                    <button
+                      class="small-btn issue-archive"
+                      data-id="${i.id}"
+                      type="button"
+                    >
+                      🗃 Archive
+                    </button>
+                  `
+                  : ''
+              }
+
             </div>
 
           </article>
@@ -5159,6 +6044,69 @@ function renderIssues() {
         No issues.
       </div>
     `;
+
+
+  document
+    .querySelectorAll('.issue-edit')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () =>
+          beginIssueEdit(
+            button.dataset.id
+          )
+      );
+    });
+
+
+  document
+    .querySelectorAll('.issue-archive')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        async () => {
+          if (myMembership?.role !== 'admin') return;
+
+          const issue = issues.find(
+            i =>
+              String(i.id) ===
+              String(button.dataset.id)
+          );
+
+          if (!issue) return;
+
+          if (!confirm(
+            `Archive issue "${issue.title}"?`
+          )) return;
+
+          const { error } = await sb
+            .from('issues')
+            .update({
+              archived: true,
+              archived_at: new Date().toISOString(),
+              archived_by: user.id,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', issue.id)
+            .eq('org_id', org.id);
+
+          if (error) {
+            toast('❌ ' + error.message);
+            return;
+          }
+
+          await logAction(
+            'Archived issue',
+            'issue',
+            issue.id,
+            issue.title
+          );
+
+          await loadWorkspaceData();
+          toast('🗃 Issue archived');
+        }
+      );
+    });
 
 
   document
@@ -5296,12 +6244,101 @@ function taskHtml(
 
       </label>
 
+      ${
+        compact
+          ? ''
+          : `
+            <div
+              style="
+                display:flex;
+                gap:6px;
+                flex-wrap:wrap;
+              "
+            >
+              <button
+                class="small-btn task-edit"
+                data-id="${task.id}"
+                type="button"
+              >
+                ✏️ Edit
+              </button>
+
+              <button
+                class="small-btn task-archive"
+                data-id="${task.id}"
+                type="button"
+              >
+                🗃 Archive
+              </button>
+            </div>
+          `
+      }
+
     </div>
   `;
 }
 
 
 function bindTaskButtons(root = document) {
+  root
+    .querySelectorAll('.task-edit')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () =>
+          beginTaskEdit(
+            button.dataset.id
+          )
+      );
+    });
+
+  root
+    .querySelectorAll('.task-archive')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        async () => {
+          const task = tasks.find(
+            t =>
+              String(t.id) ===
+              String(button.dataset.id)
+          );
+
+          if (!task || task.user_id !== user.id) return;
+
+          if (!confirm(
+            `Archive task "${task.title}"?`
+          )) return;
+
+          const { error } = await sb
+            .from('tasks')
+            .update({
+              archived: true,
+              archived_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', task.id)
+            .eq('user_id', user.id)
+            .eq('org_id', org.id);
+
+          if (error) {
+            toast('❌ ' + error.message);
+            return;
+          }
+
+          await logAction(
+            'Archived task',
+            'task',
+            task.id,
+            task.title
+          );
+
+          await loadWorkspaceData();
+          toast('🗃 Task archived');
+        }
+      );
+    });
+
   root
     .querySelectorAll(
       '.task-check'
