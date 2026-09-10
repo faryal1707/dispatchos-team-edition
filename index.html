@@ -1,290 +1,2116 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="theme-color" content="#0b1220" />
-  <title>DispatchOS Team Edition</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  />
+  <meta
+    name="theme-color"
+    content="#0b1220"
+  />
+
+  <title>
+    DispatchOS Team Edition
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="styles.css"
+  />
 </head>
+
+
 <body>
-  <div id="toast" class="toast" aria-live="polite"></div>
 
-  <section id="authScreen" class="auth-screen">
+  <div
+    id="toast"
+    class="toast"
+    aria-live="polite"
+  ></div>
+
+
+  <!-- ======================================================
+       LOGIN / SIGNUP
+  ======================================================= -->
+
+  <section
+    id="authScreen"
+    class="auth-screen"
+  >
+
     <div class="auth-card glass">
-      <div class="brand-mark">🚛</div>
-      <p class="eyebrow">DISPATCH OPERATIONS TRACKER</p>
-      <h1>DispatchOS <span>Team Edition</span></h1>
-      <p class="muted">A shared dispatch office with private personal productivity, team operations, and admin oversight.</p>
 
-      <div id="setupWarning" class="notice warning hidden">
-        ⚙️ Supabase is not configured. Add your Project URL and Publishable Key to <code>supabase-config.js</code>.
+      <div class="brand-mark">
+        🚛
       </div>
+
+      <p class="eyebrow">
+        DISPATCH OPERATIONS TRACKER
+      </p>
+
+      <h1>
+        DispatchOS
+        <span>Team Edition</span>
+      </h1>
+
+      <p class="muted">
+        A shared dispatch office with private personal
+        productivity, team operations, and admin oversight.
+      </p>
+
+
+      <div
+        id="setupWarning"
+        class="notice warning hidden"
+      >
+        ⚙️ Supabase is not configured.
+        Add your Project URL and Publishable Key to
+        <code>supabase-config.js</code>.
+      </div>
+
 
       <div class="auth-tabs">
-        <button class="auth-tab active" data-auth="login">🔐 Login</button>
-        <button class="auth-tab" data-auth="signup">✨ Create Account</button>
+
+        <button
+          class="auth-tab active"
+          data-auth="login"
+          type="button"
+        >
+          🔐 Login
+        </button>
+
+        <button
+          class="auth-tab"
+          data-auth="signup"
+          type="button"
+        >
+          ✨ Create Account
+        </button>
+
       </div>
 
-      <form id="loginForm" class="auth-form active">
-        <label>Email<input id="loginEmail" type="email" autocomplete="email" required placeholder="name@company.com"></label>
-        <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="Your password"></label>
-        <button class="btn primary wide">🔐 Enter DispatchOS</button>
+
+      <form
+        id="loginForm"
+        class="auth-form active"
+      >
+
+        <label>
+          Email
+
+          <input
+            id="loginEmail"
+            type="email"
+            autocomplete="email"
+            required
+            placeholder="name@company.com"
+          >
+        </label>
+
+
+        <label>
+          Password
+
+          <input
+            id="loginPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+            minlength="6"
+            placeholder="Your password"
+          >
+        </label>
+
+
+        <button class="btn primary wide">
+          🔐 Enter DispatchOS
+        </button>
+
       </form>
 
-      <form id="signupForm" class="auth-form">
-        <label>Your name<input id="signupName" maxlength="60" required placeholder="Dispatcher name"></label>
-        <label>Email<input id="signupEmail" type="email" autocomplete="email" required placeholder="name@company.com"></label>
-        <label>Password<input id="signupPassword" type="password" autocomplete="new-password" required minlength="6" placeholder="Minimum 6 characters"></label>
-        <button class="btn primary wide">✨ Create Account</button>
+
+      <form
+        id="signupForm"
+        class="auth-form"
+      >
+
+        <label>
+          Your name
+
+          <input
+            id="signupName"
+            maxlength="60"
+            required
+            placeholder="Dispatcher name"
+          >
+        </label>
+
+
+        <label>
+          Email
+
+          <input
+            id="signupEmail"
+            type="email"
+            autocomplete="email"
+            required
+            placeholder="name@company.com"
+          >
+        </label>
+
+
+        <label>
+          Password
+
+          <input
+            id="signupPassword"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="6"
+            placeholder="Minimum 6 characters"
+          >
+        </label>
+
+
+        <button class="btn primary wide">
+          ✨ Create Account
+        </button>
+
       </form>
-      <div id="authMessage" class="auth-message"></div>
+
+
+      <div
+        id="authMessage"
+        class="auth-message"
+      ></div>
+
     </div>
+
   </section>
 
-  <section id="workspaceGate" class="auth-screen hidden">
+
+
+  <!-- ======================================================
+       CREATE / JOIN COMPANY
+  ======================================================= -->
+
+  <section
+    id="workspaceGate"
+    class="auth-screen hidden"
+  >
+
     <div class="auth-card glass">
-      <div class="brand-mark">🏢</div>
-      <p class="eyebrow">WORKSPACE SETUP</p>
-      <h1>Choose your office</h1>
-      <p class="muted">Create a company workspace as the Admin, or join an existing one using its team code.</p>
-      <div class="gate-grid">
-        <form id="createOrgForm" class="gate-card">
-          <h3>👑 Create company</h3>
-          <p class="muted small">You become the first Admin.</p>
-          <input id="orgName" required maxlength="80" placeholder="Company / team name">
-          <button class="btn primary wide">Create Workspace</button>
-        </form>
-        <form id="joinOrgForm" class="gate-card">
-          <h3>🚛 Join company</h3>
-          <p class="muted small">Ask your Admin for the 8-character team code.</p>
-          <input id="joinCode" required maxlength="12" placeholder="e.g. 4K7P2QXZ">
-          <button class="btn secondary wide">Join Workspace</button>
-        </form>
+
+      <div class="brand-mark">
+        🏢
       </div>
-      <button id="gateLogout" class="link-btn">Sign out</button>
+
+      <p class="eyebrow">
+        WORKSPACE SETUP
+      </p>
+
+      <h1>
+        Choose your office
+      </h1>
+
+      <p class="muted">
+        Create a company workspace as the Admin,
+        or join an existing one using its team code.
+      </p>
+
+
+      <div class="gate-grid">
+
+        <form
+          id="createOrgForm"
+          class="gate-card"
+        >
+
+          <h3>
+            👑 Create company
+          </h3>
+
+          <p class="muted small">
+            You become the first Admin.
+          </p>
+
+          <input
+            id="orgName"
+            required
+            maxlength="80"
+            placeholder="Company / team name"
+          >
+
+          <button class="btn primary wide">
+            Create Workspace
+          </button>
+
+        </form>
+
+
+        <form
+          id="joinOrgForm"
+          class="gate-card"
+        >
+
+          <h3>
+            🚛 Join company
+          </h3>
+
+          <p class="muted small">
+            Ask your Admin for the 8-character team code.
+          </p>
+
+          <input
+            id="joinCode"
+            required
+            maxlength="12"
+            placeholder="e.g. 4K7P2QXZ"
+          >
+
+          <button class="btn secondary wide">
+            Join Workspace
+          </button>
+
+        </form>
+
+      </div>
+
+
+      <button
+        id="gateLogout"
+        class="link-btn"
+        type="button"
+      >
+        Sign out
+      </button>
+
     </div>
+
   </section>
 
-  <div id="app" class="app hidden">
+
+
+  <!-- ======================================================
+       MAIN APP
+  ======================================================= -->
+
+  <div
+    id="app"
+    class="app hidden"
+  >
+
+
+    <!-- SIDEBAR -->
+
     <aside class="sidebar">
+
       <div class="brand">
-        <div class="brand-mark small-mark">🚛</div>
-        <div><strong>DispatchOS</strong><span>Team Edition</span></div>
+
+        <div class="brand-mark small-mark">
+          🚛
+        </div>
+
+        <div>
+          <strong>
+            DispatchOS
+          </strong>
+
+          <span>
+            Team Edition
+          </span>
+        </div>
+
       </div>
+
 
       <div class="workspace-chip">
+
         <span class="dot"></span>
-        <div><small>WORKSPACE</small><strong id="orgNameDisplay">Loading…</strong></div>
+
+        <div>
+          <small>
+            WORKSPACE
+          </small>
+
+          <strong id="orgNameDisplay">
+            Loading…
+          </strong>
+        </div>
+
       </div>
 
-      <nav id="nav" class="nav">
-        <button class="nav-btn active" data-panel="dashboard">🏠 <span>Dashboard</span></button>
-        <button class="nav-btn" data-panel="fleet">🚚 <span>Fleet</span></button>
-        <button class="nav-btn" data-panel="loads">📦 <span>Loads</span></button>
-        <button class="nav-btn" data-panel="issues">🚨 <span>Issues</span></button>
-        <button class="nav-btn" data-panel="tasks">🎯 <span>My Tasks</span></button>
-        <button class="nav-btn" data-panel="cases">🧠 <span>Case Library</span></button>
-        <button class="nav-btn" data-panel="learning">🎓 <span>Learning</span></button>
-        <button class="nav-btn" data-panel="team">👥 <span>Team</span></button>
-        <button class="nav-btn admin-only" data-panel="admin">👑 <span>Admin Center</span></button>
-        <button class="nav-btn" data-panel="activity">📜 <span>Activity</span></button>
+
+      <nav
+        id="nav"
+        class="nav"
+      >
+
+        <button
+          class="nav-btn active"
+          data-panel="dashboard"
+        >
+          🏠
+          <span>Dashboard</span>
+        </button>
+
+        <button
+          class="nav-btn"
+          data-panel="fleet"
+        >
+          🚚
+          <span>Fleet</span>
+        </button>
+
+        <button
+          class="nav-btn"
+          data-panel="loads"
+        >
+          📦
+          <span>Loads</span>
+        </button>
+
+        <button
+          class="nav-btn"
+          data-panel="issues"
+        >
+          🚨
+          <span>Issues</span>
+        </button>
+
+        <button
+          class="nav-btn"
+          data-panel="tasks"
+        >
+          🎯
+          <span>My Tasks</span>
+        </button>
+
+        <button
+          class="nav-btn"
+          data-panel="cases"
+        >
+          🧠
+          <span>Case Library</span>
+        </button>
+
+        <button
+          class="nav-btn"
+          data-panel="learning"
+        >
+          🎓
+          <span>Learning</span>
+        </button>
+
+        <button
+          class="nav-btn"
+          data-panel="team"
+        >
+          👥
+          <span>Team</span>
+        </button>
+
+        <button
+          class="nav-btn admin-only"
+          data-panel="admin"
+        >
+          👑
+          <span>Admin Center</span>
+        </button>
+
+        <button
+          class="nav-btn"
+          data-panel="activity"
+        >
+          📜
+          <span>Activity</span>
+        </button>
+
       </nav>
 
+
+
       <div class="sidebar-bottom">
+
+
         <div class="palette-picker">
-          <small>🎨 PALETTE</small>
+
+          <small>
+            🎨 PALETTE
+          </small>
+
           <select id="paletteSelect">
-            <option value="midnight">Midnight Mint</option>
-            <option value="cobalt">Dispatch Blue</option>
-            <option value="sunset">Sunset Yard</option>
-            <option value="neon">Neon Terminal</option>
-            <option value="light">Freight Light</option>
+
+            <option value="midnight">
+              Midnight Mint
+            </option>
+
+            <option value="cobalt">
+              Dispatch Blue
+            </option>
+
+            <option value="sunset">
+              Sunset Yard
+            </option>
+
+            <option value="neon">
+              Neon Terminal
+            </option>
+
+            <option value="light">
+              Freight Light
+            </option>
+
           </select>
+
         </div>
+
+
         <div class="user-card">
-          <div class="avatar" id="userAvatar">D</div>
-          <div><strong id="userName">Dispatcher</strong><span id="userRole">Dispatcher</span></div>
-          <button id="logoutBtn" title="Sign out">↪</button>
+
+          <div
+            class="avatar"
+            id="userAvatar"
+          >
+            D
+          </div>
+
+          <div>
+
+            <strong id="userName">
+              Dispatcher
+            </strong>
+
+            <span id="userRole">
+              Dispatcher
+            </span>
+
+          </div>
+
+
+          <button
+            id="logoutBtn"
+            title="Sign out"
+            type="button"
+          >
+            ↪
+          </button>
+
         </div>
+
       </div>
+
     </aside>
 
+
+
+    <!-- ======================================================
+         MAIN CONTENT
+    ======================================================= -->
+
     <main class="main">
+
+
+      <!-- TOP BAR -->
+
       <header class="topbar">
+
         <div>
-          <p class="eyebrow" id="pageEyebrow">LIVE OPERATIONS</p>
-          <h1 id="pageTitle">Command Dashboard</h1>
+
+          <p
+            class="eyebrow"
+            id="pageEyebrow"
+          >
+            LIVE OPERATIONS
+          </p>
+
+          <h1 id="pageTitle">
+            Command Dashboard
+          </h1>
+
         </div>
+
+
         <div class="top-actions">
-          <span class="status-pill" id="syncStatus">☁️ Connecting…</span>
-          <button id="refreshBtn" class="btn ghost">🔄 Refresh</button>
-          <button id="shiftBtn" class="btn primary">🟢 Start Shift</button>
+
+          <span
+            class="status-pill"
+            id="syncStatus"
+          >
+            ☁️ Connecting…
+          </span>
+
+          <button
+            id="refreshBtn"
+            class="btn ghost"
+            type="button"
+          >
+            🔄 Refresh
+          </button>
+
+          <button
+            id="shiftBtn"
+            class="btn primary"
+            type="button"
+          >
+            🟢 Start Shift
+          </button>
+
         </div>
+
       </header>
 
-      <section id="dashboard" class="panel active-panel">
+
+
+      <!-- ======================================================
+           DASHBOARD
+      ======================================================= -->
+
+      <section
+        id="dashboard"
+        class="panel active-panel"
+      >
+
+
         <div class="hero-banner">
-          <div><p class="eyebrow">TODAY'S OPERATION</p><h2 id="welcomeTitle">Ready to dispatch?</h2><p id="welcomeSub" class="muted">Protect service, keep trucks moving, document what you learn.</p></div>
-          <div class="level-card"><span>⭐ XP</span><strong id="xpValue">0</strong><small id="levelText">Rookie Dispatcher</small></div>
+
+          <div>
+
+            <p class="eyebrow">
+              TODAY'S OPERATION
+            </p>
+
+            <h2 id="welcomeTitle">
+              Ready to dispatch?
+            </h2>
+
+            <p
+              id="welcomeSub"
+              class="muted"
+            >
+              Protect service, keep trucks moving,
+              document what you learn.
+            </p>
+
+          </div>
+
+
+          <div class="level-card">
+
+            <span>
+              ⭐ XP
+            </span>
+
+            <strong id="xpValue">
+              0
+            </strong>
+
+            <small id="levelText">
+              Rookie Dispatcher
+            </small>
+
+          </div>
+
         </div>
+
+
 
         <div class="stats-grid">
-          <article class="stat-card accent-a"><span>🚚 Active Trucks</span><strong id="statTrucks">0</strong><small id="statAssigned">0 assigned to you</small></article>
-          <article class="stat-card accent-b"><span>📦 Active Loads</span><strong id="statLoads">0</strong><small id="statLoadGross">$0 active gross</small></article>
-          <article class="stat-card accent-c"><span>💰 Gross Recorded</span><strong id="statGross">$0</strong><small id="statRpm">$0.00 avg RPM</small></article>
-          <article class="stat-card accent-d"><span>🚨 Open Issues</span><strong id="statIssues">0</strong><small id="statCritical">0 critical</small></article>
+
+          <article class="stat-card accent-a">
+
+            <span>
+              🚚 Active Trucks
+            </span>
+
+            <strong id="statTrucks">
+              0
+            </strong>
+
+            <small id="statAssigned">
+              0 assigned to you
+            </small>
+
+          </article>
+
+
+          <article class="stat-card accent-b">
+
+            <span>
+              📦 Active Loads
+            </span>
+
+            <strong id="statLoads">
+              0
+            </strong>
+
+            <small id="statLoadGross">
+              $0 active gross
+            </small>
+
+          </article>
+
+
+          <article class="stat-card accent-c">
+
+            <span>
+              💰 Gross Recorded
+            </span>
+
+            <strong id="statGross">
+              $0
+            </strong>
+
+            <small id="statRpm">
+              $0.00 avg RPM
+            </small>
+
+          </article>
+
+
+          <article class="stat-card accent-d">
+
+            <span>
+              🚨 Open Issues
+            </span>
+
+            <strong id="statIssues">
+              0
+            </strong>
+
+            <small id="statCritical">
+              0 critical
+            </small>
+
+          </article>
+
         </div>
+
+
 
         <div class="dashboard-grid">
+
+
           <article class="card">
-            <div class="card-head"><div><p class="eyebrow">🎯 MY PRIORITIES</p><h2>Today's missions</h2></div><span class="pill"><b id="taskDone">0</b>/<b id="taskTotal">0</b></span></div>
-            <form id="quickTaskForm" class="inline-form"><input id="quickTask" required maxlength="140" placeholder="Add a priority…"><button class="btn primary">＋</button></form>
-            <div id="dashboardTasks" class="stack"></div>
+
+            <div class="card-head">
+
+              <div>
+
+                <p class="eyebrow">
+                  🎯 MY PRIORITIES
+                </p>
+
+                <h2>
+                  Today's missions
+                </h2>
+
+              </div>
+
+
+              <span class="pill">
+
+                <b id="taskDone">
+                  0
+                </b>
+
+                /
+
+                <b id="taskTotal">
+                  0
+                </b>
+
+              </span>
+
+            </div>
+
+
+            <form
+              id="quickTaskForm"
+              class="inline-form"
+            >
+
+              <input
+                id="quickTask"
+                required
+                maxlength="140"
+                placeholder="Add a priority…"
+              >
+
+              <button class="btn primary">
+                ＋
+              </button>
+
+            </form>
+
+
+            <div
+              id="dashboardTasks"
+              class="stack"
+            ></div>
+
           </article>
+
+
+
           <article class="card">
-            <div class="card-head"><div><p class="eyebrow">📡 ATTENTION RADAR</p><h2>Needs action</h2></div></div>
-            <div id="attentionRadar" class="radar-grid"></div>
+
+            <div class="card-head">
+
+              <div>
+
+                <p class="eyebrow">
+                  📡 ATTENTION RADAR
+                </p>
+
+                <h2>
+                  Needs action
+                </h2>
+
+              </div>
+
+            </div>
+
+
+            <div
+              id="attentionRadar"
+              class="radar-grid"
+            ></div>
+
           </article>
+
         </div>
+
+
 
         <article class="card">
-          <div class="card-head"><div><p class="eyebrow">🛰️ LIVE LOAD BOARD</p><h2>Current movement</h2></div><button class="link-btn jump" data-jump="loads">Open Load Desk →</button></div>
-          <div id="dashboardLoads" class="table-wrap"></div>
+
+          <div class="card-head">
+
+            <div>
+
+              <p class="eyebrow">
+                🛰️ LIVE LOAD BOARD
+              </p>
+
+              <h2>
+                Current movement
+              </h2>
+
+            </div>
+
+
+            <button
+              class="link-btn jump"
+              data-jump="loads"
+              type="button"
+            >
+              Open Load Desk →
+            </button>
+
+          </div>
+
+
+          <div
+            id="dashboardLoads"
+            class="table-wrap"
+          ></div>
+
         </article>
+
       </section>
 
-      <section id="fleet" class="panel">
-        <div class="section-head"><div><p class="eyebrow">🚚 SHARED FLEET</p><h2>Trucks & assignments</h2></div><button class="btn primary admin-dispatcher" data-toggle="truckFormCard">＋ Add Truck</button></div>
-        <article id="truckFormCard" class="card form-card hidden">
-          <form id="truckForm" class="form-grid four">
-            <label>Truck #<input id="truckNo" required maxlength="20"></label>
-            <label>Driver<input id="truckDriver" required maxlength="70"></label>
-            <label>Equipment<select id="truckEquipment"><option>Dry Van</option><option>Reefer</option><option>Flatbed</option><option>Stepdeck</option><option>Conestoga</option><option>Power Only</option><option>Box Truck</option></select></label>
-            <label>Driver type<select id="driverType"><option>Solo</option><option>Team</option></select></label>
-            <label>Current location<input id="truckLocation" maxlength="100"></label>
-            <label>Status<select id="truckStatus"><option>Available</option><option>Covered</option><option>In Transit</option><option>At Pickup</option><option>At Delivery</option><option>Home Time</option><option>Breakdown</option></select></label>
-            <label>Assign dispatcher<select id="truckAssigned"></select></label>
-            <label>Daily target $<input id="truckTarget" type="number" min="0" step="50" value="1500"></label>
-            <button class="btn primary wide">💾 Save Truck</button>
-          </form>
-        </article>
-        <div id="fleetGrid" class="cards-grid"></div>
-      </section>
 
-      <section id="loads" class="panel">
-        <div class="section-head"><div><p class="eyebrow">📦 SHARED LOAD DESK</p><h2>Bookings & in-transit loads</h2></div><button class="btn primary admin-dispatcher" data-toggle="loadFormCard">＋ Book Load</button></div>
-        <article id="loadFormCard" class="card form-card hidden">
-          <form id="loadForm" class="form-grid four">
-            <label>Truck<select id="loadTruck" required></select></label>
-            <label>Broker<input id="loadBroker" required maxlength="80"></label>
-            <label>Rate $<input id="loadRate" required type="number" min="0" step="1"></label>
-            <label>Source<select id="loadSource"><option>DAT</option><option>Broker Relationship</option></select></label>
-            <label>Origin<input id="loadOrigin" required maxlength="100"></label>
-            <label>Destination<input id="loadDestination" required maxlength="100"></label>
-            <label>Loaded miles<input id="loadMiles" type="number" min="1"></label>
-            <label>Deadhead miles<input id="loadDeadhead" type="number" min="0" value="0"></label>
-            <label>Pickup<input id="pickupAt" type="datetime-local"></label>
-            <label>Delivery<input id="deliveryAt" type="datetime-local"></label>
-            <label>Reference #<input id="loadRef" maxlength="60"></label>
-            <label>Assigned dispatcher<select id="loadAssigned"></select></label>
-            <label>Status<select id="loadStatus"><option>Booked</option><option>At Pickup</option><option>In Transit</option><option>At Delivery</option><option>Delivered</option><option>Cancelled</option></select></label>
-            <label class="span-3">Notes<textarea id="loadNotes" rows="2" maxlength="500"></textarea></label>
-            <button class="btn primary wide">💾 Save Load</button>
-          </form>
-        </article>
-        <div id="loadsTable" class="table-wrap"></div>
-      </section>
 
-      <section id="issues" class="panel">
-        <div class="section-head"><div><p class="eyebrow">🚨 SHARED ISSUE DESK</p><h2>Problems that cannot be forgotten</h2></div><button class="btn danger admin-dispatcher" data-toggle="issueFormCard">＋ Open Issue</button></div>
-        <article id="issueFormCard" class="card form-card hidden">
-          <form id="issueForm" class="form-grid three">
-            <label>Issue title<input id="issueTitle" required maxlength="120"></label>
-            <label>Type<select id="issueType"><option>Driver</option><option>Broker</option><option>Pickup</option><option>Delivery</option><option>Detention</option><option>Breakdown</option><option>Rate Con</option><option>POD</option><option>Payment</option><option>Claim</option><option>Other</option></select></label>
-            <label>Priority<select id="issuePriority"><option>Critical</option><option>Medium</option><option>Low</option></select></label>
-            <label>Truck<select id="issueTruck"><option value="">None</option></select></label>
-            <label>Assigned to<select id="issueAssigned"></select></label>
-            <label>Next action<input id="issueNext" maxlength="160" placeholder="Call broker at 2 PM"></label>
-            <label class="span-3">Details<textarea id="issueDetails" required rows="3" maxlength="700"></textarea></label>
-            <button class="btn danger wide">🚨 Open Issue</button>
-          </form>
-        </article>
-        <div id="issuesList" class="stack"></div>
-      </section>
+      <!-- ======================================================
+           FLEET
+      ======================================================= -->
 
-      <section id="tasks" class="panel">
-        <div class="section-head"><div><p class="eyebrow">🎯 PRIVATE WORKSPACE</p><h2>My tasks</h2><p class="muted">Only you and authorized Admin/Trainer roles can review these.</p></div><button class="btn primary" data-toggle="taskFormCard">＋ Add Task</button></div>
-        <article id="taskFormCard" class="card form-card hidden">
-          <form id="taskForm" class="form-grid three">
-            <label>Task<input id="taskTitle" required maxlength="160"></label>
-            <label>Category<select id="taskCategory"><option>Dispatch</option><option>Follow-up</option><option>Learning</option><option>Documentation</option><option>Personal</option></select></label>
-            <label>Priority<select id="taskPriority"><option>High</option><option>Medium</option><option>Low</option></select></label>
-            <label>Due date<input id="taskDue" type="date"></label>
-            <label class="span-2">Notes<input id="taskNotes" maxlength="300"></label>
-            <button class="btn primary wide">🎯 Add Task</button>
-          </form>
-        </article>
-        <div id="tasksList" class="stack"></div>
-      </section>
+      <section
+        id="fleet"
+        class="panel"
+      >
 
-      <section id="cases" class="panel">
-        <div class="section-head"><div><p class="eyebrow">🧠 DISPATCHER INTELLIGENCE</p><h2>Problem → Solution Library</h2></div><button class="btn primary" data-toggle="caseFormCard">＋ Save Case</button></div>
-        <article id="caseFormCard" class="card form-card hidden">
-          <form id="caseForm" class="form-grid two">
-            <label>Problem / situation<input id="caseProblem" required maxlength="180"></label>
-            <label>Category<input id="caseCategory" maxlength="80" placeholder="Detention, Reefer, Broker…"></label>
-            <label>Visibility<select id="caseVisibility"><option value="personal">🔒 Personal</option><option value="company">🏢 Company Library</option></select></label>
-            <label>Tags<input id="caseTags" maxlength="120" placeholder="late, lumper, ratecon"></label>
-            <label>Solution<textarea id="caseSolution" required rows="4" maxlength="900"></textarea></label>
-            <label>Prevention / next time<textarea id="caseLesson" rows="4" maxlength="900"></textarea></label>
-            <button class="btn primary wide">🧠 Save Case</button>
-          </form>
-        </article>
-        <div class="filter-row"><input id="caseSearch" placeholder="🔎 Search problem, solution, tags…"><select id="caseScope"><option value="all">All visible</option><option value="company">Company only</option><option value="personal">My personal only</option></select></div>
-        <div id="casesList" class="stack"></div>
-      </section>
+        <div class="section-head">
 
-      <section id="learning" class="panel">
-        <div class="section-head"><div><p class="eyebrow">🎓 PRIVATE LEARNING</p><h2>Courses, notes & questions</h2></div><button class="btn primary" data-toggle="learningFormCard">＋ Add Learning</button></div>
-        <article id="learningFormCard" class="card form-card hidden">
-          <form id="learningForm" class="form-grid two">
-            <label>Topic / course<input id="learnTopic" required maxlength="160"></label>
-            <label>Source<input id="learnSource" maxlength="180" placeholder="Course, YouTube, mentor…"></label>
-            <label>What I learned<textarea id="learnNote" required rows="4" maxlength="900"></textarea></label>
-            <label>Open question<textarea id="learnQuestion" rows="4" maxlength="900"></textarea></label>
-            <button class="btn primary wide">🎓 Save Learning</button>
-          </form>
-        </article>
-        <div id="learningList" class="stack"></div>
-      </section>
+          <div>
 
-      <section id="team" class="panel">
-        <div class="section-head"><div><p class="eyebrow">👥 COMPANY TEAM</p><h2>Members & roles</h2></div><div class="team-code admin-only"><small>TEAM CODE</small><strong id="teamCode">••••••••</strong><button id="copyCode" class="btn ghost">Copy</button></div></div>
-        <div id="teamList" class="cards-grid"></div>
-      </section>
+            <p class="eyebrow">
+              🚚 SHARED FLEET
+            </p>
 
-      <section id="admin" class="panel admin-only">
-        <div class="section-head"><div><p class="eyebrow">👑 ADMIN CONTROL CENTER</p><h2>Company performance</h2></div><span class="pill">Private Admin View</span></div>
-        <div class="stats-grid admin-stats">
-          <article class="stat-card"><span>👥 Team Members</span><strong id="adminMembers">0</strong></article>
-          <article class="stat-card"><span>💰 Total Gross</span><strong id="adminGross">$0</strong></article>
-          <article class="stat-card"><span>✅ Loads Delivered</span><strong id="adminDelivered">0</strong></article>
-          <article class="stat-card"><span>🚨 Critical Open</span><strong id="adminCritical">0</strong></article>
+            <h2>
+              Trucks & assignments
+            </h2>
+
+          </div>
+
+
+          <button
+            class="btn primary admin-dispatcher"
+            data-toggle="truckFormCard"
+            type="button"
+          >
+            ＋ Add Truck
+          </button>
+
         </div>
-        <article class="card"><div class="card-head"><div><p class="eyebrow">📊 DISPATCHER SCOREBOARD</p><h2>Performance by member</h2></div></div><div id="adminScoreboard" class="table-wrap"></div></article>
-        <article class="card"><div class="card-head"><div><p class="eyebrow">🕵️ RECENT ACTIONS</p><h2>Who changed what</h2></div></div><div id="adminActivity" class="stack"></div></article>
+
+
+
+        <article
+          id="truckFormCard"
+          class="card form-card hidden"
+        >
+
+          <form
+            id="truckForm"
+            class="form-grid four"
+          >
+
+            <label>
+              Truck #
+
+              <input
+                id="truckNo"
+                required
+                maxlength="20"
+              >
+            </label>
+
+
+            <label>
+              Driver
+
+              <input
+                id="truckDriver"
+                required
+                maxlength="70"
+              >
+            </label>
+
+
+            <label>
+              Equipment
+
+              <select id="truckEquipment">
+
+                <option>Dry Van</option>
+                <option>Reefer</option>
+                <option>Flatbed</option>
+                <option>Stepdeck</option>
+                <option>Conestoga</option>
+                <option>Power Only</option>
+                <option>Box Truck</option>
+
+              </select>
+
+            </label>
+
+
+            <label>
+              Driver type
+
+              <select id="driverType">
+                <option>Solo</option>
+                <option>Team</option>
+              </select>
+
+            </label>
+
+
+            <label>
+              Current location
+
+              <input
+                id="truckLocation"
+                maxlength="100"
+              >
+            </label>
+
+
+            <label>
+              Status
+
+              <select id="truckStatus">
+
+                <option>Available</option>
+                <option>Covered</option>
+                <option>In Transit</option>
+                <option>At Pickup</option>
+                <option>At Delivery</option>
+                <option>Home Time</option>
+                <option>Breakdown</option>
+
+              </select>
+
+            </label>
+
+
+            <label>
+              Assign dispatcher
+
+              <select id="truckAssigned"></select>
+            </label>
+
+
+            <label>
+              Daily target $
+
+              <input
+                id="truckTarget"
+                type="number"
+                min="0"
+                step="50"
+                value="1500"
+              >
+            </label>
+
+
+            <button class="btn primary wide">
+              💾 Save Truck
+            </button>
+
+          </form>
+
+        </article>
+
+
+        <div
+          id="fleetGrid"
+          class="cards-grid"
+        ></div>
+
       </section>
 
-      <section id="activity" class="panel">
-        <div class="section-head"><div><p class="eyebrow">📜 AUDIT TRAIL</p><h2>Recent workspace activity</h2></div></div>
-        <div id="activityList" class="stack"></div>
+
+
+      <!-- ======================================================
+           LOADS
+      ======================================================= -->
+
+      <section
+        id="loads"
+        class="panel"
+      >
+
+        <div class="section-head">
+
+          <div>
+
+            <p class="eyebrow">
+              📦 SHARED LOAD DESK
+            </p>
+
+            <h2>
+              Bookings & in-transit loads
+            </h2>
+
+          </div>
+
+
+          <button
+            class="btn primary admin-dispatcher"
+            data-toggle="loadFormCard"
+            type="button"
+          >
+            ＋ Book Load
+          </button>
+
+        </div>
+
+
+
+        <article
+          id="loadFormCard"
+          class="card form-card hidden"
+        >
+
+          <form
+            id="loadForm"
+            class="form-grid four"
+          >
+
+            <label>
+              Truck
+              <select
+                id="loadTruck"
+                required
+              ></select>
+            </label>
+
+
+            <label>
+              Broker
+              <input
+                id="loadBroker"
+                required
+                maxlength="80"
+              >
+            </label>
+
+
+            <label>
+              Rate $
+              <input
+                id="loadRate"
+                required
+                type="number"
+                min="0"
+                step="1"
+              >
+            </label>
+
+
+            <label>
+              Source
+
+              <select id="loadSource">
+                <option>DAT</option>
+                <option>Broker Relationship</option>
+              </select>
+
+            </label>
+
+
+            <label>
+              Origin
+
+              <input
+                id="loadOrigin"
+                required
+                maxlength="100"
+              >
+            </label>
+
+
+            <label>
+              Destination
+
+              <input
+                id="loadDestination"
+                required
+                maxlength="100"
+              >
+            </label>
+
+
+            <label>
+              Loaded miles
+
+              <input
+                id="loadMiles"
+                type="number"
+                min="1"
+              >
+            </label>
+
+
+            <label>
+              Deadhead miles
+
+              <input
+                id="loadDeadhead"
+                type="number"
+                min="0"
+                value="0"
+              >
+            </label>
+
+
+            <label>
+              Pickup
+
+              <input
+                id="pickupAt"
+                type="datetime-local"
+              >
+            </label>
+
+
+            <label>
+              Delivery
+
+              <input
+                id="deliveryAt"
+                type="datetime-local"
+              >
+            </label>
+
+
+            <label>
+              Reference #
+
+              <input
+                id="loadRef"
+                maxlength="60"
+              >
+            </label>
+
+
+            <label>
+              Assigned dispatcher
+
+              <select id="loadAssigned"></select>
+            </label>
+
+
+            <label>
+              Status
+
+              <select id="loadStatus">
+
+                <option>Booked</option>
+                <option>At Pickup</option>
+                <option>In Transit</option>
+                <option>At Delivery</option>
+                <option>Delivered</option>
+                <option>Cancelled</option>
+
+              </select>
+
+            </label>
+
+
+            <label class="span-3">
+              Notes
+
+              <textarea
+                id="loadNotes"
+                rows="2"
+                maxlength="500"
+              ></textarea>
+
+            </label>
+
+
+            <button class="btn primary wide">
+              💾 Save Load
+            </button>
+
+          </form>
+
+        </article>
+
+
+        <div
+          id="loadsTable"
+          class="table-wrap"
+        ></div>
+
       </section>
+
+
+
+      <!-- ======================================================
+           ISSUES
+      ======================================================= -->
+
+      <section
+        id="issues"
+        class="panel"
+      >
+
+        <div class="section-head">
+
+          <div>
+
+            <p class="eyebrow">
+              🚨 SHARED ISSUE DESK
+            </p>
+
+            <h2>
+              Problems that cannot be forgotten
+            </h2>
+
+          </div>
+
+
+          <button
+            class="btn danger admin-dispatcher"
+            data-toggle="issueFormCard"
+            type="button"
+          >
+            ＋ Open Issue
+          </button>
+
+        </div>
+
+
+
+        <article
+          id="issueFormCard"
+          class="card form-card hidden"
+        >
+
+          <form
+            id="issueForm"
+            class="form-grid three"
+          >
+
+            <label>
+              Issue title
+
+              <input
+                id="issueTitle"
+                required
+                maxlength="120"
+              >
+            </label>
+
+
+            <label>
+              Type
+
+              <select id="issueType">
+
+                <option>Driver</option>
+                <option>Broker</option>
+                <option>Pickup</option>
+                <option>Delivery</option>
+                <option>Detention</option>
+                <option>Breakdown</option>
+                <option>Rate Con</option>
+                <option>POD</option>
+                <option>Payment</option>
+                <option>Claim</option>
+                <option>Other</option>
+
+              </select>
+
+            </label>
+
+
+            <label>
+              Priority
+
+              <select id="issuePriority">
+                <option>Critical</option>
+                <option>Medium</option>
+                <option>Low</option>
+              </select>
+
+            </label>
+
+
+            <label>
+              Truck
+
+              <select id="issueTruck">
+                <option value="">
+                  None
+                </option>
+              </select>
+
+            </label>
+
+
+            <label>
+              Assigned to
+
+              <select id="issueAssigned"></select>
+            </label>
+
+
+            <label>
+              Next action
+
+              <input
+                id="issueNext"
+                maxlength="160"
+                placeholder="Call broker at 2 PM"
+              >
+            </label>
+
+
+            <label class="span-3">
+              Details
+
+              <textarea
+                id="issueDetails"
+                required
+                rows="3"
+                maxlength="700"
+              ></textarea>
+
+            </label>
+
+
+            <button class="btn danger wide">
+              🚨 Open Issue
+            </button>
+
+          </form>
+
+        </article>
+
+
+        <div
+          id="issuesList"
+          class="stack"
+        ></div>
+
+      </section>
+
+
+
+      <!-- ======================================================
+           TASKS
+      ======================================================= -->
+
+      <section
+        id="tasks"
+        class="panel"
+      >
+
+        <div class="section-head">
+
+          <div>
+
+            <p class="eyebrow">
+              🎯 PRIVATE WORKSPACE
+            </p>
+
+            <h2>
+              My tasks
+            </h2>
+
+            <p class="muted">
+              Only you and authorized Admin/Trainer
+              roles can review these.
+            </p>
+
+          </div>
+
+
+          <button
+            class="btn primary"
+            data-toggle="taskFormCard"
+            type="button"
+          >
+            ＋ Add Task
+          </button>
+
+        </div>
+
+
+
+        <article
+          id="taskFormCard"
+          class="card form-card hidden"
+        >
+
+          <form
+            id="taskForm"
+            class="form-grid three"
+          >
+
+            <label>
+              Task
+
+              <input
+                id="taskTitle"
+                required
+                maxlength="160"
+              >
+            </label>
+
+
+            <label>
+              Category
+
+              <select id="taskCategory">
+
+                <option>Dispatch</option>
+                <option>Follow-up</option>
+                <option>Learning</option>
+                <option>Documentation</option>
+                <option>Personal</option>
+
+              </select>
+
+            </label>
+
+
+            <label>
+              Priority
+
+              <select id="taskPriority">
+                <option>High</option>
+                <option>Medium</option>
+                <option>Low</option>
+              </select>
+
+            </label>
+
+
+            <label>
+              Due date
+
+              <input
+                id="taskDue"
+                type="date"
+              >
+            </label>
+
+
+            <label class="span-2">
+              Notes
+
+              <input
+                id="taskNotes"
+                maxlength="300"
+              >
+            </label>
+
+
+            <button class="btn primary wide">
+              🎯 Add Task
+            </button>
+
+          </form>
+
+        </article>
+
+
+        <div
+          id="tasksList"
+          class="stack"
+        ></div>
+
+      </section>
+
+
+
+      <!-- ======================================================
+           CASE LIBRARY
+      ======================================================= -->
+
+      <section
+        id="cases"
+        class="panel"
+      >
+
+        <div class="section-head">
+
+          <div>
+
+            <p class="eyebrow">
+              🧠 DISPATCHER INTELLIGENCE
+            </p>
+
+            <h2>
+              Problem → Solution Library
+            </h2>
+
+          </div>
+
+
+          <button
+            class="btn primary"
+            data-toggle="caseFormCard"
+            type="button"
+          >
+            ＋ Save Case
+          </button>
+
+        </div>
+
+
+
+        <article
+          id="caseFormCard"
+          class="card form-card hidden"
+        >
+
+          <form
+            id="caseForm"
+            class="form-grid two"
+          >
+
+            <label>
+              Problem / situation
+
+              <input
+                id="caseProblem"
+                required
+                maxlength="180"
+              >
+            </label>
+
+
+            <label>
+              Category
+
+              <input
+                id="caseCategory"
+                maxlength="80"
+                placeholder="Detention, Reefer, Broker…"
+              >
+            </label>
+
+
+            <label>
+              Visibility
+
+              <select id="caseVisibility">
+
+                <option value="personal">
+                  🔒 Personal
+                </option>
+
+                <option value="company">
+                  🏢 Company Library
+                </option>
+
+              </select>
+
+            </label>
+
+
+            <label>
+              Tags
+
+              <input
+                id="caseTags"
+                maxlength="120"
+                placeholder="late, lumper, ratecon"
+              >
+            </label>
+
+
+            <label>
+              Solution
+
+              <textarea
+                id="caseSolution"
+                required
+                rows="4"
+                maxlength="900"
+              ></textarea>
+
+            </label>
+
+
+            <label>
+              Prevention / next time
+
+              <textarea
+                id="caseLesson"
+                rows="4"
+                maxlength="900"
+              ></textarea>
+
+            </label>
+
+
+            <button class="btn primary wide">
+              🧠 Save Case
+            </button>
+
+          </form>
+
+        </article>
+
+
+
+        <div class="filter-row">
+
+          <input
+            id="caseSearch"
+            placeholder="🔎 Search problem, solution, tags…"
+          >
+
+
+          <select id="caseScope">
+
+            <option value="all">
+              All visible
+            </option>
+
+            <option value="company">
+              Company only
+            </option>
+
+            <option value="personal">
+              My personal only
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div
+          id="casesList"
+          class="stack"
+        ></div>
+
+      </section>
+
+
+
+      <!-- ======================================================
+           LEARNING
+      ======================================================= -->
+
+      <section
+        id="learning"
+        class="panel"
+      >
+
+        <div class="section-head">
+
+          <div>
+
+            <p class="eyebrow">
+              🎓 PRIVATE LEARNING
+            </p>
+
+            <h2>
+              Courses, notes & questions
+            </h2>
+
+          </div>
+
+
+          <button
+            class="btn primary"
+            data-toggle="learningFormCard"
+            type="button"
+          >
+            ＋ Add Learning
+          </button>
+
+        </div>
+
+
+
+        <article
+          id="learningFormCard"
+          class="card form-card hidden"
+        >
+
+          <form
+            id="learningForm"
+            class="form-grid two"
+          >
+
+            <label>
+              Topic / course
+
+              <input
+                id="learnTopic"
+                required
+                maxlength="160"
+              >
+            </label>
+
+
+            <label>
+              Source
+
+              <input
+                id="learnSource"
+                maxlength="180"
+                placeholder="Course, YouTube, mentor…"
+              >
+            </label>
+
+
+            <label>
+              What I learned
+
+              <textarea
+                id="learnNote"
+                required
+                rows="4"
+                maxlength="900"
+              ></textarea>
+
+            </label>
+
+
+            <label>
+              Open question
+
+              <textarea
+                id="learnQuestion"
+                rows="4"
+                maxlength="900"
+              ></textarea>
+
+            </label>
+
+
+            <button class="btn primary wide">
+              🎓 Save Learning
+            </button>
+
+          </form>
+
+        </article>
+
+
+        <div
+          id="learningList"
+          class="stack"
+        ></div>
+
+      </section>
+
+
+
+      <!-- ======================================================
+           TEAM
+      ======================================================= -->
+
+      <section
+        id="team"
+        class="panel"
+      >
+
+        <div class="section-head">
+
+          <div>
+
+            <p class="eyebrow">
+              👥 COMPANY TEAM
+            </p>
+
+            <h2>
+              Members & roles
+            </h2>
+
+          </div>
+
+
+          <div class="team-code admin-only">
+
+            <small>
+              TEAM CODE
+            </small>
+
+            <strong id="teamCode">
+              ••••••••
+            </strong>
+
+            <button
+              id="copyCode"
+              class="btn ghost"
+              type="button"
+            >
+              Copy
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <div
+          id="teamList"
+          class="cards-grid"
+        ></div>
+
+      </section>
+
+
+
+      <!-- ======================================================
+           👑 UPGRADED ADMIN CENTER
+      ======================================================= -->
+
+      <section
+        id="admin"
+        class="panel admin-only"
+      >
+
+
+        <div class="section-head">
+
+          <div>
+
+            <p class="eyebrow">
+              👑 ADMIN CONTROL CENTER
+            </p>
+
+            <h2>
+              Company performance
+            </h2>
+
+          </div>
+
+
+          <span class="pill">
+            Private Admin View
+          </span>
+
+        </div>
+
+
+
+        <!-- ADMIN SUMMARY -->
+
+        <div class="stats-grid admin-stats">
+
+
+          <article class="stat-card">
+
+            <span>
+              👥 Team Members
+            </span>
+
+            <strong id="adminMembers">
+              0
+            </strong>
+
+          </article>
+
+
+          <article class="stat-card">
+
+            <span>
+              🟢 Online Now
+            </span>
+
+            <strong id="adminOnline">
+              0
+            </strong>
+
+          </article>
+
+
+          <article class="stat-card">
+
+            <span>
+              🚦 Working Shift
+            </span>
+
+            <strong id="adminWorking">
+              0
+            </strong>
+
+          </article>
+
+
+          <article class="stat-card">
+
+            <span>
+              💰 Total Gross
+            </span>
+
+            <strong id="adminGross">
+              $0
+            </strong>
+
+          </article>
+
+
+          <article class="stat-card">
+
+            <span>
+              ✅ Loads Delivered
+            </span>
+
+            <strong id="adminDelivered">
+              0
+            </strong>
+
+          </article>
+
+
+          <article class="stat-card">
+
+            <span>
+              🚨 Critical Open
+            </span>
+
+            <strong id="adminCritical">
+              0
+            </strong>
+
+          </article>
+
+
+        </div>
+
+
+
+        <!-- LIVE TEAM MONITOR -->
+
+        <article class="card">
+
+          <div class="card-head">
+
+            <div>
+
+              <p class="eyebrow">
+                📡 LIVE TEAM MONITOR
+              </p>
+
+              <h2>
+                Who is working right now
+              </h2>
+
+              <p class="muted">
+                Auto-refreshes while the Admin Center
+                is open.
+              </p>
+
+            </div>
+
+
+            <button
+              id="adminRefreshNow"
+              class="btn ghost"
+              type="button"
+            >
+              ↻ Refresh now
+            </button>
+
+          </div>
+
+
+          <div
+            id="adminLiveTeam"
+            class="cards-grid"
+          ></div>
+
+        </article>
+
+
+
+        <!-- MEMBER PERFORMANCE -->
+
+        <article class="card">
+
+          <div class="card-head">
+
+            <div>
+
+              <p class="eyebrow">
+                📊 DISPATCHER SCOREBOARD
+              </p>
+
+              <h2>
+                Performance by member
+              </h2>
+
+              <p class="muted">
+                See booked loads, assigned loads,
+                gross, RPM, issues, tasks, XP
+                and activity by dispatcher.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div
+            id="adminScoreboard"
+            class="table-wrap"
+          ></div>
+
+        </article>
+
+
+
+        <!-- ACTIVITY FEED -->
+
+        <article class="card">
+
+          <div class="card-head">
+
+            <div>
+
+              <p class="eyebrow">
+                🕵️ LIVE ACTIVITY
+              </p>
+
+              <h2>
+                Who changed what
+              </h2>
+
+              <p class="muted">
+                Recent load bookings, tasks,
+                issues and shift activity.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div
+            id="adminActivity"
+            class="stack"
+          ></div>
+
+        </article>
+
+
+      </section>
+
+
+
+      <!-- ======================================================
+           ACTIVITY
+      ======================================================= -->
+
+      <section
+        id="activity"
+        class="panel"
+      >
+
+        <div class="section-head">
+
+          <div>
+
+            <p class="eyebrow">
+              📜 AUDIT TRAIL
+            </p>
+
+            <h2>
+              Recent workspace activity
+            </h2>
+
+          </div>
+
+        </div>
+
+
+        <div
+          id="activityList"
+          class="stack"
+        ></div>
+
+      </section>
+
+
     </main>
+
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+
+  <!-- ======================================================
+       SCRIPTS
+  ======================================================= -->
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+  ></script>
+
   <script src="supabase-config.js"></script>
+
   <script src="app.js"></script>
+
 </body>
+
 </html>
