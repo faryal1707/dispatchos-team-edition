@@ -14,6 +14,7 @@ let tasks = [];
 let cases = [];
 let learning = [];
 let activity = [];
+let loadDocuments = [];
 
 let currentPanel = 'dashboard';
 
@@ -591,6 +592,7 @@ function showAuth() {
   cases = [];
   learning = [];
   activity = [];
+  loadDocuments = [];
 }
 
 
@@ -996,8 +998,6 @@ $('createOrgForm')
       );
     }
   );
-
-
 $('joinOrgForm')
   .addEventListener(
     'submit',
@@ -1195,6 +1195,7 @@ async function loadWorkspaceData() {
     caseResult,
     learningResult,
     activityResult,
+    documentResult,
     profileResult
   ] =
     await Promise.all([
@@ -1316,6 +1317,23 @@ async function loadWorkspaceData() {
         .limit(100),
 
       sb
+        .from(
+          'load_documents'
+        )
+        .select('*')
+        .eq(
+          'org_id',
+          oid
+        )
+        .order(
+          'created_at',
+          {
+            ascending:
+              false
+          }
+        ),
+
+      sb
         .from('profiles')
         .select('*')
         .eq(
@@ -1335,6 +1353,7 @@ async function loadWorkspaceData() {
     caseResult,
     learningResult,
     activityResult,
+    documentResult,
     profileResult
   ].forEach(
     result => {
@@ -1381,6 +1400,10 @@ async function loadWorkspaceData() {
 
   activity =
     activityResult.data ||
+    [];
+
+  loadDocuments =
+    documentResult.data ||
     [];
 
   profile =
@@ -2277,8 +2300,6 @@ $('truckForm')
       );
     }
   );
-
-
 /* ============================================================
    LOAD FORM
 ============================================================ */
@@ -2289,6 +2310,28 @@ $('loadForm')
     async e => {
 
       e.preventDefault();
+
+
+      /*
+       * Optional document selected while
+       * the dispatcher is booking the load.
+       *
+       * These fields will be added to index.html:
+       *
+       * loadDocumentType
+       * loadDocumentFile
+       */
+
+      const firstDocumentFile =
+        $('loadDocumentFile')
+          ?.files?.[0] ||
+        null;
+
+
+      const firstDocumentType =
+        $('loadDocumentType')
+          ?.value ||
+        'RC';
 
 
       const payload = {
@@ -2411,6 +2454,23 @@ $('loadForm')
         data.id,
         `${payload.origin} → ${payload.destination} · ${money(payload.rate)}`
       );
+
+
+      /*
+       * Upload first RC/BOL/POD etc.
+       * if the dispatcher selected a file.
+       */
+
+      if (
+        firstDocumentFile
+      ) {
+
+        await uploadLoadDocument(
+          data.id,
+          firstDocumentFile,
+          firstDocumentType
+        );
+      }
 
 
       e.target.reset();
@@ -2573,6 +2633,7 @@ async function addTask(
           due || null,
 
         notes
+
       })
       .select()
       .single();
@@ -3292,21 +3353,27 @@ function renderFleet() {
               <div class="metric-row">
 
                 <div class="metric">
+
                   <small>
                     📍 Location
                   </small>
+
                   <strong>
                     ${esc(
                       t.current_location ||
                       'Not set'
                     )}
                   </strong>
+
                 </div>
 
+
                 <div class="metric">
+
                   <small>
                     👤 Dispatcher
                   </small>
+
                   <strong>
                     ${esc(
                       memberName(
@@ -3314,23 +3381,31 @@ function renderFleet() {
                       )
                     )}
                   </strong>
+
                 </div>
 
+
                 <div class="metric">
+
                   <small>
                     🎯 Daily target
                   </small>
+
                   <strong>
                     ${money(
                       t.daily_target
                     )}
                   </strong>
+
                 </div>
 
+
                 <div class="metric">
+
                   <small>
                     Updated
                   </small>
+
                   <strong>
                     ${
                       fmt(
@@ -3338,6 +3413,7 @@ function renderFleet() {
                       ).split(',')[0]
                     }
                   </strong>
+
                 </div>
 
               </div>
@@ -3351,6 +3427,919 @@ function renderFleet() {
 }
 
 
+/* ============================================================
+   LOAD DOCUMENT SYSTEM
+============================================================ */
+
+function loadDocs(loadId) {
+
+  return loadDocuments.filter(
+    doc =>
+      String(
+        doc.load_id
+      ) ===
+      String(
+        loadId
+      )
+  );
+}
+
+
+function hasLoadDoc(
+  loadId,
+  type
+) {
+
+  return loadDocs(
+    loadId
+  ).some(
+    doc =>
+      doc.document_type ===
+      type
+  );
+}
+
+
+function documentIcon(type) {
+
+  if (
+    type === 'RC'
+  ) return '📄';
+
+  if (
+    type === 'BOL'
+  ) return '📋';
+
+  if (
+    type === 'POD'
+  ) return '✅';
+
+  if (
+    type === 'Lumper'
+  ) return '💵';
+
+  return '📎';
+}
+
+
+function safeFileName(name) {
+
+  return String(
+    name ||
+    'document'
+  ).replace(
+    /[^a-zA-Z0-9._-]/g,
+    '_'
+  );
+}
+
+
+async function uploadLoadDocument(
+  loadId,
+  file,
+  type
+) {
+
+  if (!file) {
+    return false;
+  }
+
+
+  if (
+    ![
+      'admin',
+      'dispatcher'
+    ].includes(
+      myMembership?.role
+    )
+  ) {
+
+    toast(
+      '❌ You cannot upload load documents'
+    );
+
+    return false;
+  }
+
+
+  const allowedTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/webp'
+  ];
+
+
+  if (
+    file.type &&
+    !allowedTypes.includes(
+      file.type
+    )
+  ) {
+
+    toast(
+      '❌ Use PDF, JPG, PNG or WEBP files'
+    );
+
+    return false;
+  }
+
+
+  const maxFileSize =
+    20 *
+    1024 *
+    1024;
+
+
+  if (
+    file.size >
+    maxFileSize
+  ) {
+
+    toast(
+      '❌ Maximum document size is 20 MB'
+    );
+
+    return false;
+  }
+
+
+  const unique =
+    window.crypto
+      ?.randomUUID
+      ? window.crypto
+          .randomUUID()
+      : `${Date.now()}-${Math.random()
+          .toString(16)
+          .slice(2)}`;
+
+
+  const storagePath =
+    `${org.id}/${loadId}/${unique}-${safeFileName(
+      file.name
+    )}`;
+
+
+  setSync(
+    `📎 Uploading ${type}…`
+  );
+
+
+  const {
+    error:
+      uploadError
+  } =
+    await sb.storage
+      .from(
+        'load-documents'
+      )
+      .upload(
+        storagePath,
+        file,
+        {
+          cacheControl:
+            '3600',
+
+          upsert:
+            false
+        }
+      );
+
+
+  if (
+    uploadError
+  ) {
+
+    console.error(
+      'Document upload error:',
+      uploadError
+    );
+
+
+    setSync(
+      '☁️ Synced'
+    );
+
+
+    toast(
+      '❌ Upload failed: ' +
+      uploadError.message
+    );
+
+    return false;
+  }
+
+
+  const {
+    data:
+      documentRow,
+
+    error:
+      dbError
+  } =
+    await sb
+      .from(
+        'load_documents'
+      )
+      .insert({
+
+        org_id:
+          org.id,
+
+        load_id:
+          loadId,
+
+        uploaded_by:
+          user.id,
+
+        document_type:
+          type,
+
+        file_name:
+          file.name,
+
+        storage_path:
+          storagePath
+
+      })
+      .select()
+      .single();
+
+
+  if (
+    dbError
+  ) {
+
+    console.error(
+      'Document database error:',
+      dbError
+    );
+
+
+    await sb.storage
+      .from(
+        'load-documents'
+      )
+      .remove([
+        storagePath
+      ]);
+
+
+    setSync(
+      '☁️ Synced'
+    );
+
+
+    toast(
+      '❌ Document could not be saved: ' +
+      dbError.message
+    );
+
+    return false;
+  }
+
+
+  if (
+    documentRow
+  ) {
+
+    loadDocuments.unshift(
+      documentRow
+    );
+  }
+
+
+  await logAction(
+    `Uploaded ${type}`,
+    'load',
+    loadId,
+    file.name
+  );
+
+
+  setSync(
+    '☁️ Synced'
+  );
+
+
+  toast(
+    `✅ ${type} uploaded`
+  );
+
+
+  return true;
+}
+
+
+async function openLoadDocument(
+  documentId
+) {
+
+  const doc =
+    loadDocuments.find(
+      d =>
+        String(
+          d.id
+        ) ===
+        String(
+          documentId
+        )
+    );
+
+
+  if (!doc) {
+    return;
+  }
+
+
+  const {
+    data,
+    error
+  } =
+    await sb.storage
+      .from(
+        'load-documents'
+      )
+      .createSignedUrl(
+        doc.storage_path,
+        300
+      );
+
+
+  if (
+    error
+  ) {
+
+    toast(
+      '❌ Cannot open document: ' +
+      error.message
+    );
+
+    return;
+  }
+
+
+  if (
+    !data?.signedUrl
+  ) {
+
+    toast(
+      '❌ Document link could not be created'
+    );
+
+    return;
+  }
+
+
+  window.open(
+    data.signedUrl,
+    '_blank',
+    'noopener,noreferrer'
+  );
+}
+
+
+async function deleteLoadDocument(
+  documentId
+) {
+
+  if (
+    ![
+      'admin',
+      'dispatcher'
+    ].includes(
+      myMembership?.role
+    )
+  ) {
+    return;
+  }
+
+
+  const doc =
+    loadDocuments.find(
+      d =>
+        String(
+          d.id
+        ) ===
+        String(
+          documentId
+        )
+    );
+
+
+  if (!doc) {
+    return;
+  }
+
+
+  const confirmed =
+    window.confirm(
+      `Delete ${doc.document_type} — ${doc.file_name}?`
+    );
+
+
+  if (
+    !confirmed
+  ) {
+    return;
+  }
+
+
+  const {
+    error:
+      storageError
+  } =
+    await sb.storage
+      .from(
+        'load-documents'
+      )
+      .remove([
+        doc.storage_path
+      ]);
+
+
+  if (
+    storageError
+  ) {
+
+    toast(
+      '❌ Could not delete file: ' +
+      storageError.message
+    );
+
+    return;
+  }
+
+
+  const {
+    error
+  } =
+    await sb
+      .from(
+        'load_documents'
+      )
+      .delete()
+      .eq(
+        'id',
+        doc.id
+      );
+
+
+  if (
+    error
+  ) {
+
+    toast(
+      '❌ ' +
+      error.message
+    );
+
+    return;
+  }
+
+
+  loadDocuments =
+    loadDocuments.filter(
+      d =>
+        String(
+          d.id
+        ) !==
+        String(
+          doc.id
+        )
+    );
+
+
+  await logAction(
+    `Deleted ${doc.document_type}`,
+    'load',
+    doc.load_id,
+    doc.file_name
+  );
+
+
+  renderLoads();
+  renderDashboard();
+
+
+  toast(
+    '🗑️ Document deleted'
+  );
+}
+
+
+function documentPanel(
+  load
+) {
+
+  const docs =
+    loadDocs(
+      load.id
+    );
+
+
+  const hasRC =
+    hasLoadDoc(
+      load.id,
+      'RC'
+    );
+
+
+  const hasBOL =
+    hasLoadDoc(
+      load.id,
+      'BOL'
+    );
+
+
+  const hasPOD =
+    hasLoadDoc(
+      load.id,
+      'POD'
+    );
+
+
+  const podWarning =
+    load.status ===
+      'Delivered' &&
+    !hasPOD;
+
+
+  return `
+    <div
+      class="load-documents"
+      style="
+        padding:12px;
+        border-radius:12px;
+        border:1px solid rgba(148,163,184,.18);
+      "
+    >
+
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:10px;
+          flex-wrap:wrap;
+        "
+      >
+
+        <strong>
+          📁 Load Documents
+        </strong>
+
+
+        <div class="meta">
+
+          RC
+          ${
+            hasRC
+              ? '✅'
+              : '❌'
+          }
+
+          · BOL
+          ${
+            hasBOL
+              ? '✅'
+              : '❌'
+          }
+
+          · POD
+          ${
+            hasPOD
+              ? '✅'
+              : '❌'
+          }
+
+        </div>
+
+      </div>
+
+
+      ${
+        podWarning
+          ? `
+            <div
+              class="notice"
+              style="
+                margin-top:10px
+              "
+            >
+
+              🚨
+              <b>
+                POD MISSING:
+              </b>
+
+              This load is marked
+              Delivered.
+
+            </div>
+          `
+          : ''
+      }
+
+
+      <div
+        style="
+          display:flex;
+          flex-wrap:wrap;
+          gap:8px;
+          margin-top:10px;
+        "
+      >
+
+        ${
+          docs.length
+            ? docs
+                .map(
+                  doc => `
+                    <div
+                      class="pill"
+                      style="
+                        display:flex;
+                        align-items:center;
+                        gap:6px;
+                      "
+                    >
+
+                      <button
+                        class="link-btn open-load-doc"
+                        data-doc="${doc.id}"
+                        type="button"
+                      >
+
+                        ${documentIcon(
+                          doc.document_type
+                        )}
+
+                        ${esc(
+                          doc.document_type
+                        )}
+
+                        —
+
+                        ${esc(
+                          doc.file_name
+                        )}
+
+                      </button>
+
+
+                      ${
+                        [
+                          'admin',
+                          'dispatcher'
+                        ].includes(
+                          myMembership?.role
+                        )
+                          ? `
+                            <button
+                              class="link-btn delete-load-doc"
+                              data-doc="${doc.id}"
+                              type="button"
+                              title="Delete document"
+                            >
+                              ✕
+                            </button>
+                          `
+                          : ''
+                      }
+
+                    </div>
+                  `
+                )
+                .join('')
+            : `
+              <span class="muted">
+                No documents uploaded yet.
+              </span>
+            `
+        }
+
+      </div>
+
+
+      ${
+        [
+          'admin',
+          'dispatcher'
+        ].includes(
+          myMembership?.role
+        )
+          ? `
+            <div
+              style="
+                display:grid;
+                grid-template-columns:
+                  minmax(120px,160px)
+                  minmax(220px,1fr)
+                  auto;
+                gap:8px;
+                margin-top:12px;
+                align-items:end;
+              "
+            >
+
+              <label>
+
+                Document type
+
+                <select
+                  class="extra-doc-type"
+                  data-load="${load.id}"
+                >
+
+                  <option value="RC">
+                    📄 RC
+                  </option>
+
+                  <option value="BOL">
+                    📋 BOL
+                  </option>
+
+                  <option value="POD">
+                    ✅ POD
+                  </option>
+
+                  <option value="Lumper">
+                    💵 Lumper
+                  </option>
+
+                  <option value="Other">
+                    📎 Other
+                  </option>
+
+                </select>
+
+              </label>
+
+
+              <label>
+
+                File
+
+                <input
+                  class="extra-doc-file"
+                  data-load="${load.id}"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                >
+
+              </label>
+
+
+              <button
+                class="btn ghost extra-doc-upload"
+                data-load="${load.id}"
+                type="button"
+              >
+                ⬆ Upload
+              </button>
+
+            </div>
+          `
+          : ''
+      }
+
+    </div>
+  `;
+}
+
+
+function bindLoadDocumentButtons() {
+
+  document
+    .querySelectorAll(
+      '.open-load-doc'
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          'click',
+          () => {
+
+            openLoadDocument(
+              button.dataset.doc
+            );
+          }
+        );
+      }
+    );
+
+
+  document
+    .querySelectorAll(
+      '.delete-load-doc'
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          'click',
+          () => {
+
+            deleteLoadDocument(
+              button.dataset.doc
+            );
+          }
+        );
+      }
+    );
+
+
+  document
+    .querySelectorAll(
+      '.extra-doc-upload'
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          'click',
+          async () => {
+
+            const loadId =
+              button.dataset.load;
+
+
+            const typeSelect =
+              document.querySelector(
+                `.extra-doc-type[data-load="${loadId}"]`
+              );
+
+
+            const fileInput =
+              document.querySelector(
+                `.extra-doc-file[data-load="${loadId}"]`
+              );
+
+
+            const file =
+              fileInput
+                ?.files?.[0];
+
+
+            if (
+              !file
+            ) {
+
+              toast(
+                '⚠️ Choose a document first'
+              );
+
+              return;
+            }
+
+
+            const previousText =
+              button.textContent;
+
+
+            button.disabled =
+              true;
+
+
+            button.textContent =
+              '⏳ Uploading…';
+
+
+            const ok =
+              await uploadLoadDocument(
+                loadId,
+                file,
+                typeSelect
+                  ?.value ||
+                'Other'
+              );
+
+
+            button.disabled =
+              false;
+
+
+            button.textContent =
+              previousText;
+
+
+            if (
+              ok &&
+              fileInput
+            ) {
+
+              fileInput.value =
+                '';
+
+              renderLoads();
+            }
+          }
+        );
+      }
+    );
+}
 /* ============================================================
    LOADS
 ============================================================ */
@@ -3408,18 +4397,50 @@ function loadTable(
 
         <tr>
 
-          <th>Truck</th>
-          <th>Lane</th>
-          <th>Broker</th>
-          <th>Rate</th>
-          <th>RPM</th>
-          <th>All-in</th>
-          <th>Dispatcher</th>
-          <th>Status</th>
+          <th>
+            Truck
+          </th>
+
+          <th>
+            Lane
+          </th>
+
+          <th>
+            Broker
+          </th>
+
+          <th>
+            Rate
+          </th>
+
+          <th>
+            RPM
+          </th>
+
+          <th>
+            All-in
+          </th>
+
+          <th>
+            Dispatcher
+          </th>
+
+          <th>
+            Documents
+          </th>
+
+          <th>
+            Status
+          </th>
+
 
           ${
             actions
-              ? '<th>Action</th>'
+              ? `
+                <th>
+                  Action
+                </th>
+              `
               : ''
           }
 
@@ -3431,117 +4452,304 @@ function loadTable(
       <tbody>
 
         ${
-          list
-            .map(
-              l => `
-                <tr>
+          list.length
 
-                  <td>
-                    ${esc(
-                      l.trucks
-                        ?.truck_no ||
-                      '—'
-                    )}
-                  </td>
+            ? list
+                .map(
+                  l => {
 
-                  <td>
-
-                    <b>
-                      ${esc(
-                        l.origin
-                      )}
-                    </b>
-
-                    <br>
-
-                    <span class="meta">
-                      →
-                      ${esc(
-                        l.destination
-                      )}
-                    </span>
-
-                  </td>
+                    const hasRC =
+                      hasLoadDoc(
+                        l.id,
+                        'RC'
+                      );
 
 
-                  <td>
-
-                    ${esc(
-                      l.broker
-                    )}
-
-                    <br>
-
-                    <span class="meta">
-                      ${esc(
-                        l.source
-                      )}
-                    </span>
-
-                  </td>
+                    const hasBOL =
+                      hasLoadDoc(
+                        l.id,
+                        'BOL'
+                      );
 
 
-                  <td>
-                    ${money(
-                      l.rate
-                    )}
-                  </td>
+                    const hasPOD =
+                      hasLoadDoc(
+                        l.id,
+                        'POD'
+                      );
 
 
-                  <td>
-                    $${rpm(l)}
-                  </td>
+                    const podMissing =
+                      l.status ===
+                        'Delivered' &&
+                      !hasPOD;
 
 
-                  <td>
-                    $${allIn(l)}
-                  </td>
+                    return `
 
+                      <tr>
 
-                  <td>
-                    ${esc(
-                      memberName(
-                        l.assigned_to
-                      )
-                    )}
-                  </td>
-
-
-                  <td>
-                    ${statusBadge(
-                      l.status
-                    )}
-                  </td>
-
-
-                  ${
-                    actions
-                      ? `
                         <td>
 
-                          <select
-                            class="load-status"
-                            data-id="${l.id}"
-                          >
-
-                            <option>Booked</option>
-                            <option>At Pickup</option>
-                            <option>In Transit</option>
-                            <option>At Delivery</option>
-                            <option>Delivered</option>
-                            <option>Cancelled</option>
-
-                          </select>
+                          ${esc(
+                            l.trucks
+                              ?.truck_no ||
+                            '—'
+                          )}
 
                         </td>
-                      `
-                      : ''
-                  }
 
-                </tr>
-              `
-            )
-            .join('')
+
+                        <td>
+
+                          <b>
+                            ${esc(
+                              l.origin
+                            )}
+                          </b>
+
+                          <br>
+
+                          <span class="meta">
+                            →
+                            ${esc(
+                              l.destination
+                            )}
+                          </span>
+
+
+                          ${
+                            podMissing
+                              ? `
+                                <div
+                                  class="meta"
+                                  style="
+                                    color:var(--danger);
+                                    margin-top:5px;
+                                    font-weight:700;
+                                  "
+                                >
+                                  🚨 POD MISSING
+                                </div>
+                              `
+                              : ''
+                          }
+
+                        </td>
+
+
+                        <td>
+
+                          ${esc(
+                            l.broker
+                          )}
+
+                          <br>
+
+                          <span class="meta">
+                            ${esc(
+                              l.source ||
+                              '—'
+                            )}
+                          </span>
+
+                        </td>
+
+
+                        <td>
+
+                          ${money(
+                            l.rate
+                          )}
+
+                        </td>
+
+
+                        <td>
+
+                          $${rpm(l)}
+
+                        </td>
+
+
+                        <td>
+
+                          $${allIn(l)}
+
+                        </td>
+
+
+                        <td>
+
+                          ${esc(
+                            memberName(
+                              l.assigned_to
+                            )
+                          )}
+
+                        </td>
+
+
+                        <td>
+
+                          <div
+                            style="
+                              display:flex;
+                              flex-direction:column;
+                              gap:4px;
+                              min-width:90px;
+                            "
+                          >
+
+                            <span
+                              class="meta"
+                              style="
+                                white-space:nowrap;
+                              "
+                            >
+                              📄 RC
+                              ${
+                                hasRC
+                                  ? '✅'
+                                  : '❌'
+                              }
+                            </span>
+
+
+                            <span
+                              class="meta"
+                              style="
+                                white-space:nowrap;
+                              "
+                            >
+                              📋 BOL
+                              ${
+                                hasBOL
+                                  ? '✅'
+                                  : '❌'
+                              }
+                            </span>
+
+
+                            <span
+                              class="meta"
+                              style="
+                                white-space:nowrap;
+                              "
+                            >
+                              ✅ POD
+                              ${
+                                hasPOD
+                                  ? '✅'
+                                  : '❌'
+                              }
+                            </span>
+
+                          </div>
+
+                        </td>
+
+
+                        <td>
+
+                          ${statusBadge(
+                            l.status
+                          )}
+
+                        </td>
+
+
+                        ${
+                          actions
+                            ? `
+                              <td>
+
+                                <select
+                                  class="load-status"
+                                  data-id="${l.id}"
+                                >
+
+                                  <option>
+                                    Booked
+                                  </option>
+
+                                  <option>
+                                    At Pickup
+                                  </option>
+
+                                  <option>
+                                    In Transit
+                                  </option>
+
+                                  <option>
+                                    At Delivery
+                                  </option>
+
+                                  <option>
+                                    Delivered
+                                  </option>
+
+                                  <option>
+                                    Cancelled
+                                  </option>
+
+                                </select>
+
+                              </td>
+                            `
+                            : ''
+                        }
+
+                      </tr>
+
+
+                      ${
+                        actions
+                          ? `
+                            <tr>
+
+                              <td
+                                colspan="10"
+                                style="
+                                  padding-top:0;
+                                "
+                              >
+
+                                ${documentPanel(
+                                  l
+                                )}
+
+                              </td>
+
+                            </tr>
+                          `
+                          : ''
+                      }
+
+                    `;
+                  }
+                )
+                .join('')
+
+            : `
+              <tr>
+
+                <td
+                  colspan="${
+                    actions
+                      ? '10'
+                      : '9'
+                  }"
+                >
+
+                  <div class="meta">
+                    No loads recorded yet.
+                  </div>
+
+                </td>
+
+              </tr>
+            `
         }
 
       </tbody>
@@ -3571,7 +4779,9 @@ function renderLoads() {
         const load =
           loads.find(
             x =>
-              String(x.id) ===
+              String(
+                x.id
+              ) ===
               String(
                 select.dataset.id
               )
@@ -3604,15 +4814,22 @@ function renderLoads() {
               const oldStatus =
                 load.status;
 
+
               const newStatus =
                 select.value;
+
+
+              select.disabled =
+                true;
 
 
               const {
                 error
               } =
                 await sb
-                  .from('loads')
+                  .from(
+                    'loads'
+                  )
                   .update({
 
                     status:
@@ -3636,8 +4853,14 @@ function renderLoads() {
                   error.message
                 );
 
+
                 select.value =
                   oldStatus;
+
+
+                select.disabled =
+                  false;
+
 
                 return;
               }
@@ -3669,13 +4892,41 @@ function renderLoads() {
 
 
               await loadWorkspaceData();
+
+
+              if (
+                newStatus ===
+                  'Delivered' &&
+                !hasLoadDoc(
+                  load.id,
+                  'POD'
+                )
+              ) {
+
+                toast(
+                  '🚨 Load delivered — POD is still missing'
+                );
+
+              } else {
+
+                toast(
+                  `✅ Load status: ${newStatus}`
+                );
+              }
             }
           );
       }
     );
+
+
+  /*
+   * Connect Open / Delete / Upload
+   * buttons after the load table
+   * has been created.
+   */
+
+  bindLoadDocumentButtons();
 }
-
-
 /* ============================================================
    ISSUES
 ============================================================ */
@@ -4710,8 +5961,6 @@ function renderTeam() {
       }
     );
 }
-
-
 /* ============================================================
    ACTIVITY
 ============================================================ */
