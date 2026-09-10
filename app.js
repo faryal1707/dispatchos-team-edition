@@ -20,6 +20,7 @@ let loadDocuments = [];
 let currentPanel = 'dashboard';
 let carrierFilter = 'all';
 let editingLoadId = null;
+let editingTruckId = null;
 
 let heartbeatTimer = null;
 let adminRefreshTimer = null;
@@ -853,6 +854,7 @@ function showApp() {
 
 
   ensureLoadCancelButton();
+  ensureTruckCancelButton();
   renderShift();
   ensureCarrierFilter();
 }
@@ -2390,8 +2392,238 @@ if ($('carrierForm')) {
 
 
 /* ============================================================
-   TRUCK FORM
+   TRUCK FORM + FULL FLEET EDITING
 ============================================================ */
+
+function truckSubmitButton() {
+  return $('truckForm')?.querySelector(
+    'button[type="submit"], button:not([type])'
+  );
+}
+
+
+function ensureTruckCancelButton() {
+  const form = $('truckForm');
+
+  if (!form || $('cancelTruckEdit')) return;
+
+  const button = document.createElement('button');
+
+  button.id = 'cancelTruckEdit';
+  button.type = 'button';
+  button.className = 'btn ghost wide hidden';
+  button.textContent = '✖ Cancel Edit';
+
+  button.addEventListener('click', () => {
+    resetTruckFormMode(true);
+    toast('Edit cancelled');
+  });
+
+  form.appendChild(button);
+}
+
+
+function resetTruckFormMode(closeCard = false) {
+  editingTruckId = null;
+
+  $('truckForm')?.reset();
+
+  if ($('truckTarget')) {
+    $('truckTarget').value = 1500;
+  }
+
+  const submit = truckSubmitButton();
+
+  if (submit) {
+    submit.textContent = '💾 Save Truck';
+  }
+
+  $('cancelTruckEdit')?.classList.add('hidden');
+
+  if (closeCard) {
+    $('truckFormCard')?.classList.add('hidden');
+  }
+}
+
+
+function beginTruckEdit(truckId) {
+  const truck = trucks.find(
+    t => String(t.id) === String(truckId)
+  );
+
+  if (!truck) {
+    toast('❌ Truck not found');
+    return;
+  }
+
+  if (!['admin', 'dispatcher'].includes(myMembership?.role)) {
+    toast('❌ You cannot edit trucks');
+    return;
+  }
+
+  editingTruckId = truck.id;
+  ensureTruckCancelButton();
+
+  $('truckCarrier').value = truck.carrier_id || '';
+  $('truckNo').value = truck.truck_no || '';
+  $('truckTrailer').value = truck.trailer_no || '';
+  $('truckEquipment').value = truck.equipment || 'Dry Van';
+  $('truckDriver').value = truck.driver_name || '';
+  $('truckDriverPhone').value = truck.driver_phone || '';
+  $('truckDriverEmail').value = truck.driver_email || '';
+  $('driverType').value = truck.driver_type || 'Solo';
+  $('truckHomeLocation').value = truck.driver_home_location || '';
+  $('truckLocation').value = truck.current_location || '';
+  $('truckAvailableAt').value =
+    toDateTimeLocalValue(truck.available_at);
+  $('truckNextLocation').value =
+    truck.next_available_location || '';
+  $('truckStatus').value = truck.status || 'Available';
+  $('truckAssigned').value = truck.assigned_to || '';
+  $('truckTarget').value = Number(truck.daily_target || 0);
+  $('truckDriverNotes').value = truck.driver_notes || '';
+
+  const submit = truckSubmitButton();
+
+  if (submit) {
+    submit.textContent = '✅ Update Truck';
+  }
+
+  $('cancelTruckEdit')?.classList.remove('hidden');
+  $('truckFormCard')?.classList.remove('hidden');
+
+  showPanel('fleet');
+
+  $('truckFormCard')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  });
+
+  toast('✏️ Editing truck');
+}
+
+
+function beginLoadForTruck(truckId) {
+  const truck = trucks.find(
+    t => String(t.id) === String(truckId)
+  );
+
+  if (!truck) {
+    toast('❌ Truck not found');
+    return;
+  }
+
+  if (!['admin', 'dispatcher'].includes(myMembership?.role)) {
+    toast('❌ You cannot book loads');
+    return;
+  }
+
+  resetLoadFormMode(false);
+
+  $('loadTruck').value = truck.id;
+  $('loadAssigned').value = truck.assigned_to || user.id;
+
+  $('loadFormCard')?.classList.remove('hidden');
+
+  showPanel('loads');
+
+  $('loadFormCard')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  });
+
+  updateLoadRatePreview();
+
+  toast(`📦 Booking load for Truck ${truck.truck_no}`);
+}
+
+
+function beginIssueForTruck(truckId) {
+  const truck = trucks.find(
+    t => String(t.id) === String(truckId)
+  );
+
+  if (!truck) {
+    toast('❌ Truck not found');
+    return;
+  }
+
+  if (!['admin', 'dispatcher'].includes(myMembership?.role)) {
+    toast('❌ You cannot open issues');
+    return;
+  }
+
+  $('issueForm')?.reset();
+
+  $('issueTruck').value = truck.id;
+  $('issueAssigned').value =
+    truck.assigned_to || user.id;
+
+  $('issueFormCard')?.classList.remove('hidden');
+
+  showPanel('issues');
+
+  $('issueFormCard')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  });
+
+  toast(`🚨 New issue for Truck ${truck.truck_no}`);
+}
+
+
+function truckStatusFromLoadStatus(loadStatus) {
+  const map = {
+    'Booked': 'Covered',
+    'At Pickup': 'At Pickup',
+    'In Transit': 'In Transit',
+    'At Delivery': 'At Delivery',
+    'Delivered': 'Available',
+    'Cancelled': 'Available'
+  };
+
+  return map[loadStatus] || null;
+}
+
+
+async function syncTruckFromLoadStatus(
+  truckId,
+  loadStatus
+) {
+  if (!truckId) return;
+
+  const truckStatus =
+    truckStatusFromLoadStatus(loadStatus);
+
+  if (!truckStatus) return;
+
+  const updates = {
+    status: truckStatus,
+    updated_at: new Date().toISOString()
+  };
+
+  if (
+    loadStatus === 'Delivered' ||
+    loadStatus === 'Cancelled'
+  ) {
+    updates.available_at =
+      new Date().toISOString();
+  }
+
+  const { error } = await sb
+    .from('trucks')
+    .update(updates)
+    .eq('id', truckId)
+    .eq('org_id', org.id);
+
+  if (error) {
+    console.error(
+      'Truck status sync error:',
+      error
+    );
+  }
+}
+
 
 $('truckForm').addEventListener('submit', async e => {
   e.preventDefault();
@@ -2404,46 +2636,106 @@ $('truckForm').addEventListener('submit', async e => {
     return;
   }
 
+  if (!['admin', 'dispatcher'].includes(myMembership?.role)) {
+    toast('❌ You cannot edit fleet records');
+    return;
+  }
+
   const payload = {
-    org_id: org.id,
     carrier_id: selectedCarrier,
     truck_no: $('truckNo').value.trim(),
+    trailer_no:
+      $('truckTrailer')?.value.trim() || null,
     driver_name: $('truckDriver').value.trim(),
+    driver_phone:
+      $('truckDriverPhone')?.value.trim() || null,
+    driver_email:
+      $('truckDriverEmail')?.value.trim() || null,
+    driver_home_location:
+      $('truckHomeLocation')?.value.trim() || null,
     equipment: $('truckEquipment').value,
     driver_type: $('driverType').value,
-    current_location: $('truckLocation').value.trim(),
+    current_location:
+      $('truckLocation').value.trim(),
+    available_at:
+      $('truckAvailableAt')?.value
+        ? new Date(
+            $('truckAvailableAt').value
+          ).toISOString()
+        : null,
+    next_available_location:
+      $('truckNextLocation')?.value.trim() || null,
     status: $('truckStatus').value,
-    assigned_to: $('truckAssigned').value || null,
-    daily_target: Number($('truckTarget').value || 0),
-    created_by: user.id
+    assigned_to:
+      $('truckAssigned').value || null,
+    daily_target:
+      Number($('truckTarget').value || 0),
+    driver_notes:
+      $('truckDriverNotes')?.value.trim() || null
   };
 
-  const { data, error } = await sb
-    .from('trucks')
-    .insert(payload)
-    .select()
-    .single();
+  const wasEditing = Boolean(editingTruckId);
+
+  let data;
+  let error;
+
+  if (wasEditing) {
+    const result = await sb
+      .from('trucks')
+      .update({
+        ...payload,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', editingTruckId)
+      .eq('org_id', org.id)
+      .select()
+      .single();
+
+    data = result.data;
+    error = result.error;
+
+  } else {
+    const result = await sb
+      .from('trucks')
+      .insert({
+        org_id: org.id,
+        ...payload,
+        created_by: user.id
+      })
+      .select()
+      .single();
+
+    data = result.data;
+    error = result.error;
+  }
 
   if (error) {
     toast('❌ ' + error.message);
     return;
   }
 
-  await gainXP(5);
+  if (!wasEditing) {
+    await gainXP(5);
+  }
 
   await logAction(
-    'Added truck',
+    wasEditing
+      ? 'Edited truck'
+      : 'Added truck',
     'truck',
     data.id,
     `${carrierName(payload.carrier_id)} · Truck ${payload.truck_no}`
   );
 
-  e.target.reset();
-  $('truckFormCard').classList.add('hidden');
+  resetTruckFormMode(true);
 
   await loadWorkspaceData();
 
-  toast('🚚 Truck added');
+  toast(
+    wasEditing
+      ? '✅ Truck updated'
+      : '🚚 Truck added'
+  );
 });
 
 
@@ -2777,6 +3069,11 @@ $('loadForm').addEventListener('submit', async e => {
   if (!wasEditing) {
     await gainXP(10);
   }
+
+  await syncTruckFromLoadStatus(
+    editablePayload.truck_id,
+    editablePayload.status
+  );
 
   await logAction(
     wasEditing
@@ -3646,7 +3943,9 @@ function renderCarriers() {
 
 function renderFleet() {
   const visibleTrucks =
-    filteredTrucks();
+    filteredTrucks().filter(
+      t => !t.archived
+    );
 
   $('fleetGrid').innerHTML =
     visibleTrucks
@@ -3685,10 +3984,20 @@ function renderFleet() {
             <div class="metric-row">
 
               <div class="metric">
-                <small>📍 Location</small>
+                <small>📍 Current Location</small>
                 <strong>
                   ${esc(
                     t.current_location ||
+                    'Not set'
+                  )}
+                </strong>
+              </div>
+
+              <div class="metric">
+                <small>🚛 Trailer</small>
+                <strong>
+                  ${esc(
+                    t.trailer_no ||
                     'Not set'
                   )}
                 </strong>
@@ -3706,6 +4015,27 @@ function renderFleet() {
               </div>
 
               <div class="metric">
+                <small>⏰ Available</small>
+                <strong>
+                  ${esc(
+                    t.available_at
+                      ? fmt(t.available_at)
+                      : 'Not set'
+                  )}
+                </strong>
+              </div>
+
+              <div class="metric">
+                <small>📍 Next Location</small>
+                <strong>
+                  ${esc(
+                    t.next_available_location ||
+                    'Not set'
+                  )}
+                </strong>
+              </div>
+
+              <div class="metric">
                 <small>🎯 Daily Target</small>
                 <strong>
                   ${money(t.daily_target)}
@@ -3713,6 +4043,68 @@ function renderFleet() {
               </div>
 
             </div>
+
+
+            <div class="meta" style="margin-top:12px">
+              📱 ${esc(t.driver_phone || 'No phone')}
+              ${
+                t.driver_email
+                  ? ` · ✉️ ${esc(t.driver_email)}`
+                  : ''
+              }
+              ${
+                t.driver_home_location
+                  ? ` · 🏠 ${esc(t.driver_home_location)}`
+                  : ''
+              }
+            </div>
+
+            ${
+              t.driver_notes
+                ? `
+                  <div class="notice" style="margin-top:10px">
+                    📝 ${esc(t.driver_notes)}
+                  </div>
+                `
+                : ''
+            }
+
+            ${
+              ['admin', 'dispatcher'].includes(
+                myMembership?.role
+              )
+                ? `
+                  <div
+                    class="issue-actions"
+                    style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"
+                  >
+                    <button
+                      class="small-btn edit-truck-btn"
+                      data-id="${t.id}"
+                      type="button"
+                    >
+                      ✏️ Edit Truck
+                    </button>
+
+                    <button
+                      class="small-btn book-truck-load-btn"
+                      data-id="${t.id}"
+                      type="button"
+                    >
+                      📦 Book Load
+                    </button>
+
+                    <button
+                      class="small-btn truck-issue-btn"
+                      data-id="${t.id}"
+                      type="button"
+                    >
+                      🚨 Open Issue
+                    </button>
+                  </div>
+                `
+                : ''
+            }
 
           </article>
         `
@@ -3723,6 +4115,42 @@ function renderFleet() {
         No trucks found.
       </div>
     `;
+
+  document
+    .querySelectorAll('.edit-truck-btn')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () =>
+          beginTruckEdit(
+            button.dataset.id
+          )
+      );
+    });
+
+  document
+    .querySelectorAll('.book-truck-load-btn')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () =>
+          beginLoadForTruck(
+            button.dataset.id
+          )
+      );
+    });
+
+  document
+    .querySelectorAll('.truck-issue-btn')
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () =>
+          beginIssueForTruck(
+            button.dataset.id
+          )
+      );
+    });
 }
 
 
@@ -4600,6 +5028,11 @@ function renderLoads() {
 
             return;
           }
+
+          await syncTruckFromLoadStatus(
+            load.truck_id,
+            newStatus
+          );
 
           await logAction(
             'Updated load status',
